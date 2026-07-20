@@ -1,68 +1,73 @@
-# Kit d'intégration — pour l'équipe The Circle
+# Message pour l'équipe The Circle
 
-Ce document permet à The Circle d'appeler le service OCR **en condition réelle**
-et de brancher sa résolution `pseudo → profile_id`. Le contrat est **figé**
-(SPEC §6) : il ne changera pas quand l'OCR (Lot 2+) arrivera, la sortie restera
-identique.
-
-> Rappel de la frontière (SPEC §2) : le service **rend du JSON, point**. Il ne
-> connaît aucun `profile_id`, ne stocke aucune capture, n'accède à aucune base.
-> Toute la résolution `pseudo → compte` vit **côté The Circle**.
+> Message prêt à envoyer (Discord / mail) au dev de The Circle. Remplace les
+> `<…>` par les vraies valeurs avant l'envoi. Ne colle **jamais** la clé `sk_…`
+> dans le repo ni dans un salon public — passe-la en DM.
 
 ---
 
-## 1. Ce qu'on vous fournit
+Salut 👋
 
-| Élément | Valeur |
+Le service OCR de scoreboards est en ligne, et votre moitié peut commencer à s'y
+brancher **dès maintenant**. Voici tout ce qu'il vous faut.
+
+## En deux mots
+
+Vous nous envoyez les résultats d'un scoreboard (déjà lus à l'écran), on vous
+renvoie du **JSON validé** : joueurs, kills, morts, placement, avec un score de
+confiance. C'est tout. **On ne connaît aucun de vos comptes**, on ne stocke aucune
+capture, on ne touche jamais à votre base. Le point de contact entre nous, c'est
+**le pseudo** : on vous les rend bruts, c'est vous qui faites `pseudo → profile_id`
+de votre côté.
+
+## Ce dont vous avez besoin
+
+| | |
 |---|---|
-| **URL de base** | `https://<a-completer>.vercel.app` *(fournie après déploiement Vercel)* |
+| **URL** | `https://<url>.vercel.app` |
 | **Endpoint** | `POST /v1/matches` |
-| **Sonde** | `GET /api/health` (sans auth) |
-| **Clé d'API de test** | `sk_…` *(fournie séparément, par canal sûr — jamais dans le repo)* |
+| **Sonde (sans auth)** | `GET /api/health` |
+| **Votre clé** | `sk_…` *(envoyée en DM)* |
+| **Auth** | header `Authorization: Bearer sk_<votre-clé>` |
 
-L'auth se fait par header : `Authorization: Bearer sk_<votre-clé>`.
-
----
-
-## 2. Vérifier la connectivité
+## Tester la connexion
 
 ```bash
-curl -s https://<url>/api/health
+curl -s https://<url>.vercel.app/api/health
 # → {"status":"ok","service":"ocr-resultat","lot":1}
 ```
 
----
+## Appeler l'endpoint
 
-## 3. Appeler l'endpoint (chemin navigateur — le seul actif en Lot 1)
-
-Le service attend le JSON **déjà extrait** (`source: "web"`). Le chemin image
-(`source: "discord"`) répond `501 ocr_not_available` tant que l'OCR serveur n'est
-pas livré (Lot 4).
+Pour l'instant on attend le JSON **déjà extrait** (`source: "web"`). Le chemin
+image (capture postée sur Discord) arrivera plus tard — d'ici là il répond
+`501 ocr_not_available`.
 
 ```bash
-curl -s https://<url>/v1/matches \
+curl -s https://<url>.vercel.app/v1/matches \
   -H "Authorization: Bearer sk_VOTRE_CLE" \
   -H "Content-Type: application/json" \
-  --data @examples/web-battle-royale.json
+  -d '{
+    "source": "web",
+    "game": "warzone",
+    "mode": "battle_royale",
+    "extracted": {
+      "teams": [
+        { "placement": 1, "players": [
+          { "pseudo": "AZ-1234", "kills": 12, "deaths": 3, "assists": 5, "confidence": 0.94 } ] },
+        { "placement": 2, "players": [
+          { "pseudo": "Rico", "kills": 8, "deaths": 5, "assists": 2, "confidence": 0.88 } ] }
+      ]
+    }
+  }'
 ```
 
-### Corps de requête, par mode
-
-- **battle_royale** — plusieurs `teams`, chacune avec un `placement`.
-  → `examples/web-battle-royale.json`
+Trois modes possibles :
+- **battle_royale** — plusieurs `teams`, chacune avec son `placement`.
 - **team_deathmatch** — exactement 2 `teams`, `placement` 1 (gagnante) / 2.
-  → `examples/web-team-deathmatch.json`
-- **free_for_all** — 1 seule `team`, `placement` porté **au niveau joueur**.
-  → `examples/web-free-for-all.json`
+- **free_for_all** — 1 seule `team`, `placement` porté au niveau **joueur**.
 
-Champs joueur : `pseudo` (string brute), `kills`/`deaths`/`placement` (entiers ≥ 0),
-`assists` (optionnel), `confidence` (0.0–1.0).
-
----
-
-## 4. Réponse (SPEC §6.2)
-
-Exemple pour `examples/web-battle-royale.json` :
+## Ce que vous recevez
 
 ```json
 {
@@ -84,46 +89,40 @@ Exemple pour `examples/web-battle-royale.json` :
 }
 ```
 
-- `match_id` et `captured_at` sont **générés par le service**.
-- `confidence` (global) = **moyenne** des confidences joueurs.
-- `warnings` : cellules douteuses. Codes actuels : `low_confidence_pseudo`,
-  `duplicate_placement`. À afficher en surbrillance pour validation humaine (§9).
-- Le service **ne renvoie jamais** de `profile_id`, email ou identité, et **ne
-  corrige jamais** un pseudo.
+- `match_id` et `captured_at` : générés par nous.
+- `confidence` global = moyenne des confidences joueurs.
+- `warnings` = les cases douteuses (`low_confidence_pseudo`,
+  `duplicate_placement`). À afficher en surbrillance pour validation humaine avant
+  d'enregistrer quoi que ce soit.
+- On ne renvoie **jamais** de `profile_id`/email, et on ne « corrige » jamais un
+  pseudo — c'est votre job.
 
----
+## Les erreurs à gérer
 
-## 5. Cas d'erreur à gérer (SPEC §6.3)
+Toujours la même forme : `{ "error": { "code": "…", "message": "…" } }`
 
-Format uniforme : `{ "error": { "code": "…", "message": "…" } }`
+| HTTP | code | quand |
+|---|---|---|
+| 400 | `invalid_body` | JSON malformé / champ manquant / règle de mode violée |
+| 401 | `invalid_api_key` | clé absente ou invalide |
+| 422 | `unreadable_scoreboard` | confiance globale trop basse |
+| 429 | `rate_limited` | quota dépassé (~60/min), voir header `Retry-After` |
+| 501 | `ocr_not_available` | chemin image (pas encore dispo) |
 
-| HTTP | `code` | Déclencheur | À tester |
-|---|---|---|---|
-| 400 | `invalid_body` | JSON malformé, champ manquant, règle de mode violée | `teams: []` |
-| 401 | `invalid_api_key` | clé absente ou invalide | sans header `Authorization` |
-| 422 | `unreadable_scoreboard` | confiance globale sous le minimum exploitable | toutes confidences < 0.50 |
-| 429 | `rate_limited` | quota dépassé (~60 req/min) — header `Retry-After` | boucle rapide |
-| 501 | `ocr_not_available` | chemin image (Lot 4 pas encore là) | `source: "discord"` |
+## Ce que vous branchez derrière
 
----
+1. Vous recevez le JSON ci-dessus.
+2. Pour chaque `pseudo` : match exact → format clan (`AZ-XXXX`) → approximatif
+   (Levenshtein) proposé pour validation.
+3. Les pseudos non résolus / douteux → présentés à l'orga, **jamais enregistrés
+   en silence**.
+4. Une fois `pseudo → profile_id` fait → votre payload interne → votre scoring.
+   (`team_deathmatch` → mode MJ, `battle_royale` → mode BR chez vous.)
 
-## 6. Ce que The Circle branche derrière (rappel, SPEC §7)
+## Vous n'avez pas besoin de nous pour avancer
 
-1. Reçoit la réponse du §4.
-2. Pour chaque `pseudo` : correspondance exacte → format clan (`AZ-XXXX`) →
-   approximative (Levenshtein) proposée pour validation.
-3. Pseudos non résolus / basse confiance → présentés à l'organisateur, **jamais
-   enregistrés en silence**.
-4. Une fois `pseudo → profile_id` résolu → payload interne existant → scoring.
+Le contrat est **figé** : il ne bougera pas quand on ajoutera la vraie lecture
+d'image. Vous pouvez bouchonner les réponses ci-dessus et coder votre résolution
+tout de suite. Quand le vrai OCR arrivera, la sortie sera **identique**.
 
-Traduction des modes vers l'interne : `team_deathmatch` → « MJ »,
-`battle_royale` → « BR ».
-
----
-
-## 7. Tester sans nous (contrat figé)
-
-Vous n'avez **pas besoin** de notre disponibilité pour avancer : bouchonnez les
-réponses du §4 à partir des fichiers `examples/*.json` et codez votre résolution
-contre. Quand l'OCR réel arrivera (Lot 2+), la sortie sera **identique** — votre
-code ne bougera pas.
+Des questions, on est là. 🙌
