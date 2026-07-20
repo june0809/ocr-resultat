@@ -1,0 +1,25 @@
+{
+  "name": "ocr-resultat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Service d'ingestion de resultats de match par capture d'ecran — valideur d'API (Lot 1).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "keygen": "node scripts/keygen.mjs"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "typescript": "5.5.3"
+  }
+}

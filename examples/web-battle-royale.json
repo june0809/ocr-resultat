@@ -1,0 +1,21 @@
+{
+  "source": "web",
+  "game": "warzone",
+  "mode": "battle_royale",
+  "extracted": {
+    "teams": [
+      {
+        "placement": 1,
+        "players": [
+          { "pseudo": "AZ-1234", "kills": 12, "deaths": 3, "assists": 5, "confidence": 0.94 }
+        ]
+      },
+      {
+        "placement": 2,
+        "players": [
+          { "pseudo": "Rico", "kills": 8, "deaths": 5, "assists": 2, "confidence": 0.88 }
+        ]
+      }
+    ]
+  }
+}
