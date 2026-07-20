@@ -46,6 +46,15 @@ function loadKeys(): Map<string, Tenant> {
 }
 
 /**
+ * Nombre de cles vues par ce deploiement (diagnostic de config).
+ * Ne revele NI les cles NI les hash — juste le compte. Sert a verifier que la
+ * variable d'env API_KEYS est bien presente dans l'environnement de prod.
+ */
+export function countKeys(): number {
+  return loadKeys().size;
+}
+
+/**
  * Extrait et verifie la cle du header Authorization.
  * @returns le tenant si la cle est valide, sinon null.
  */
