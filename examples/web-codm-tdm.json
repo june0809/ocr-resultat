@@ -1,0 +1,30 @@
+{
+  "source": "web",
+  "game": "codm",
+  "mode": "team_deathmatch",
+  "captured_at": "2019-07-26T00:13:44Z",
+  "extracted": {
+    "teams": [
+      {
+        "placement": 1,
+        "players": [
+          { "pseudo": "AZ-Angelos",      "kills": 15, "deaths": 7, "assists": 0, "is_mvp": true },
+          { "pseudo": "ΛVΛ`Silence",     "kills": 12, "deaths": 5, "assists": 1 },
+          { "pseudo": "AZ-Alk_pc(Paul)",  "kills": 5,  "deaths": 7, "assists": 0 },
+          { "pseudo": "AZ-SSKKAARRR",    "kills": 4,  "deaths": 7, "assists": 1 },
+          { "pseudo": "AZ-hawwaw(Hawa)",  "kills": 2,  "deaths": 7, "assists": 1 }
+        ]
+      },
+      {
+        "placement": 2,
+        "players": [
+          { "pseudo": "ŁŐŃĚwOLfє",       "kills": 10, "deaths": 8, "assists": 1, "is_mvp": true },
+          { "pseudo": "ツÁMờ_ṂṂ0",       "kills": 8,  "deaths": 7, "assists": 0 },
+          { "pseudo": "LIOʼNESSє",       "kills": 7,  "deaths": 7, "assists": 1 },
+          { "pseudo": "[4jTGoT4LJXo",    "kills": 4,  "deaths": 8, "assists": 1 },
+          { "pseudo": "乙刀 · THE END",    "kills": 4,  "deaths": 8, "assists": 0 }
+        ]
+      }
+    ]
+  }
+}

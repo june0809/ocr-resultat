@@ -31,6 +31,9 @@ const PlayerIn = z.object({
   confidence: z.number().min(0).max(1).optional(),
   // placement au niveau joueur : uniquement pour free_for_all (§6.2)
   placement: nonNegInt.optional(),
+  // is_mvp : badge MVP par joueur (champ generique esport). Passthrough : lu en
+  // entree, reemis tel quel en sortie, jamais deduit cote service.
+  is_mvp: z.boolean().optional(),
 });
 
 const TeamIn = z.object({
@@ -154,6 +157,7 @@ export interface PlayerOut {
   deaths: number;
   assists?: number;
   placement?: number;
+  is_mvp?: boolean;
   confidence: number;
 }
 

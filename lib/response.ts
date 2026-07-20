@@ -54,6 +54,7 @@ export function buildResponse(body: WebMatchBody): BuildResult {
         deaths: p.deaths,
         ...(p.assists !== undefined ? { assists: p.assists } : {}),
         ...(p.placement !== undefined ? { placement: p.placement } : {}),
+        ...(p.is_mvp !== undefined ? { is_mvp: p.is_mvp } : {}),
         confidence,
       };
     }),
