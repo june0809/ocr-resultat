@@ -67,6 +67,13 @@ Trois modes possibles :
 - **team_deathmatch** — exactement 2 `teams`, `placement` 1 (gagnante) / 2.
 - **free_for_all** — 1 seule `team`, `placement` porté au niveau **joueur**.
 
+Deux détails pratiques :
+- **`confidence` (joueur) est optionnelle** : si vous l'omettez (lecture web déjà
+  propre), on applique `1.0` par défaut. Vous pouvez aussi l'envoyer explicitement.
+- **`captured_at` (optionnel, au niveau racine)** : envoyez l'**heure réelle du
+  match** (ISO 8601, UTC `Z` ou offset accepté) et on la renvoie telle quelle. Si
+  absent, on met notre heure serveur (= heure d'appel).
+
 ## Ce que vous recevez
 
 ```json

@@ -36,13 +36,15 @@ export function buildResponse(body: WebMatchBody): BuildResult {
   const teams: TeamOut[] = body.extracted.teams.map((team) => ({
     placement: team.placement,
     players: team.players.map((p) => {
-      confidences.push(p.confidence);
+      // confidence optionnelle -> 1.0 par defaut (lecture web deja propre).
+      const confidence = p.confidence ?? 1;
+      confidences.push(confidence);
 
-      if (p.confidence < warnThreshold) {
+      if (confidence < warnThreshold) {
         warnings.push({
           code: "low_confidence_pseudo",
           player: p.pseudo,
-          detail: `${p.confidence.toFixed(2)} < ${warnThreshold.toFixed(2)}`,
+          detail: `${confidence.toFixed(2)} < ${warnThreshold.toFixed(2)}`,
         });
       }
 
@@ -52,7 +54,7 @@ export function buildResponse(body: WebMatchBody): BuildResult {
         deaths: p.deaths,
         ...(p.assists !== undefined ? { assists: p.assists } : {}),
         ...(p.placement !== undefined ? { placement: p.placement } : {}),
-        confidence: p.confidence,
+        confidence,
       };
     }),
   }));
@@ -83,7 +85,8 @@ export function buildResponse(body: WebMatchBody): BuildResult {
     match_id: randomUUID(),
     game: body.game,
     mode: body.mode,
-    captured_at: new Date().toISOString(),
+    // heure reelle du match si fournie par le client, sinon heure serveur.
+    captured_at: body.captured_at ?? new Date().toISOString(),
     source: "web",
     confidence: Number(globalConfidence.toFixed(2)),
     teams,

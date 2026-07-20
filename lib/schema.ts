@@ -26,7 +26,9 @@ const PlayerIn = z.object({
   deaths: nonNegInt,
   // assists optionnel : certains jeux ne l'affichent pas (§6.2)
   assists: nonNegInt.optional(),
-  confidence: z.number().min(0).max(1),
+  // confidence optionnelle : si omise (lecture web deja propre), 1.0 par defaut
+  // est applique dans lib/response.ts.
+  confidence: z.number().min(0).max(1).optional(),
   // placement au niveau joueur : uniquement pour free_for_all (§6.2)
   placement: nonNegInt.optional(),
 });
@@ -51,6 +53,10 @@ export const WebMatchBody = z.object({
   source: z.literal("web"),
   game: z.string().min(1).max(64),
   mode: Mode,
+  // captured_at optionnel : heure REELLE du match fournie par le client
+  // (ex. The Circle). Si absent, le service met son heure serveur (voir response.ts).
+  // Accepte l'UTC (Z) comme les offsets (+02:00).
+  captured_at: z.string().datetime({ offset: true }).optional(),
   extracted: Extracted,
 });
 
