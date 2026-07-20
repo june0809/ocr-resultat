@@ -26,15 +26,21 @@ function safeEqualHex(a: string, b: string): boolean {
   return timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
 }
 
+/** Retire espaces et guillemets (") ou (') englobants — evite le piege du
+ *  copier-coller depuis .env.example ou de l'UI Vercel. */
+function clean(s: string): string {
+  return s.trim().replace(/^['"]+|['"]+$/g, "").trim();
+}
+
 function loadKeys(): Map<string, Tenant> {
-  const raw = process.env.API_KEYS ?? "";
+  const raw = clean(process.env.API_KEYS ?? "");
   const map = new Map<string, Tenant>();
   for (const entry of raw.split(",")) {
-    const trimmed = entry.trim();
+    const trimmed = clean(entry);
     if (!trimmed) continue;
     const [hash, label] = trimmed.split(":");
     if (!hash || !label) continue;
-    map.set(hash.toLowerCase(), { label: label.trim() });
+    map.set(clean(hash).toLowerCase(), { label: clean(label) });
   }
   return map;
 }
