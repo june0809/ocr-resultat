@@ -22,6 +22,9 @@
 *.tsbuildinfo
 next-env.d.ts
 
+# claude code (reglages locaux machine)
+.claude/
+
 # logs & os
 npm-debug.log*
 yarn-debug.log*
