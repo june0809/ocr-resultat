@@ -1,0 +1,23 @@
+{
+  "source": "web",
+  "game": "warzone",
+  "mode": "team_deathmatch",
+  "extracted": {
+    "teams": [
+      {
+        "placement": 1,
+        "players": [
+          { "pseudo": "AZ-1234", "kills": 18, "deaths": 11, "assists": 6, "confidence": 0.95 },
+          { "pseudo": "AZ-5678", "kills": 14, "deaths": 13, "assists": 9, "confidence": 0.93 }
+        ]
+      },
+      {
+        "placement": 2,
+        "players": [
+          { "pseudo": "Rico", "kills": 12, "deaths": 15, "assists": 4, "confidence": 0.91 },
+          { "pseudo": "Maya", "kills": 9, "deaths": 16, "assists": 7, "confidence": 0.9 }
+        ]
+      }
+    ]
+  }
+}

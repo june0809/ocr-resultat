@@ -1,0 +1,16 @@
+{
+  "source": "web",
+  "game": "warzone",
+  "mode": "free_for_all",
+  "extracted": {
+    "teams": [
+      {
+        "players": [
+          { "pseudo": "AZ-1234", "kills": 21, "deaths": 8, "placement": 1, "confidence": 0.96 },
+          { "pseudo": "Rico", "kills": 17, "deaths": 12, "placement": 2, "confidence": 0.92 },
+          { "pseudo": "Maya", "kills": 15, "deaths": 13, "placement": 3, "confidence": 0.89 }
+        ]
+      }
+    ]
+  }
+}
