@@ -10,8 +10,8 @@ export default function Home() {
       <p>
         Endpoint : <code>POST /v1/matches</code> — voir le <code>README.md</code>.
       </p>
-      <p style={{ color: "#666", fontSize: "0.9rem" }}>
-        Lot 1 : valideur d&apos;API (aucun OCR). La page d&apos;upload arrive en Lot 2.
+      <p>
+        <a href="/upload">→ Page d&apos;upload (OCR navigateur, CODM)</a>
       </p>
     </main>
   );
