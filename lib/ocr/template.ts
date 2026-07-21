@@ -42,13 +42,17 @@ export interface GameTemplate {
   tables: TableTemplate[];
 }
 
-/** Colonnes communes aux deux tableaux (memes proportions internes). */
+/**
+ * Colonnes communes aux deux tableaux (memes proportions internes), RELATIVES a
+ * la boite du tableau. Calibre sur les captures reelles CODM S&D (examples/screens) :
+ * rang (0–0.14) et avatar (0.14–0.20) ignores. La disposition interne des deux
+ * tableaux est symetrique (verifie : score et É/M/A tombent aux memes fractions).
+ */
 const SND_COLUMNS: Column[] = [
-  // rang (0–0.10) et avatar (0.10–0.22) ignores : non lus.
-  { field: "pseudo", type: "text", x: 0.22, width: 0.40 },
-  { field: "score", type: "int", x: 0.62, width: 0.14 },
-  { field: "ema", type: "ema", x: 0.76, width: 0.16 },
-  // impact (0.92–1.0) ignore par defaut.
+  { field: "pseudo", type: "text", x: 0.2, width: 0.28 },
+  { field: "score", type: "int", x: 0.48, width: 0.16 },
+  { field: "ema", type: "ema", x: 0.65, width: 0.18 },
+  // impact (0.85–1.0) ignore : non utilise cote The Circle.
 ];
 
 const SND_ROWS = { top: 0.0, height: 0.2, count: 5 };
@@ -58,14 +62,16 @@ export const CODM_SND: GameTemplate = {
   mode: "team_deathmatch",
   tables: [
     {
+      // equipe bleue (gauche) : x 0.015..0.48, lignes 0.273..0.69
       side: "blue",
-      box: { x: 0.05, y: 0.28, width: 0.42, height: 0.5 },
+      box: { x: 0.015, y: 0.273, width: 0.465, height: 0.417 },
       rows: SND_ROWS,
       columns: SND_COLUMNS,
     },
     {
+      // equipe rouge (droite), symetrique
       side: "red",
-      box: { x: 0.53, y: 0.28, width: 0.42, height: 0.5 },
+      box: { x: 0.505, y: 0.273, width: 0.465, height: 0.417 },
       rows: SND_ROWS,
       columns: SND_COLUMNS,
     },
