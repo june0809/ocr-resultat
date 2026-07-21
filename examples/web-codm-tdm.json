@@ -7,6 +7,7 @@
     "teams": [
       {
         "placement": 1,
+        "rounds_won": 5,
         "players": [
           { "pseudo": "AZ-Angelos",      "kills": 15, "deaths": 7, "assists": 0, "is_mvp": true },
           { "pseudo": "ΛVΛ`Silence",     "kills": 12, "deaths": 5, "assists": 1 },
@@ -17,6 +18,7 @@
       },
       {
         "placement": 2,
+        "rounds_won": 4,
         "players": [
           { "pseudo": "ŁŐŃĚwOLfє",       "kills": 10, "deaths": 8, "assists": 1, "is_mvp": true },
           { "pseudo": "ツÁMờ_ṂṂ0",       "kills": 8,  "deaths": 7, "assists": 0 },

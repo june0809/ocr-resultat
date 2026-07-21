@@ -35,6 +35,7 @@ export function buildResponse(body: WebMatchBody): BuildResult {
 
   const teams: TeamOut[] = body.extracted.teams.map((team) => ({
     placement: team.placement,
+    ...(team.rounds_won !== undefined ? { rounds_won: team.rounds_won } : {}),
     players: team.players.map((p) => {
       // confidence optionnelle -> 1.0 par defaut (lecture web deja propre).
       const confidence = p.confidence ?? 1;

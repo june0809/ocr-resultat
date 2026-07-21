@@ -38,6 +38,10 @@ const PlayerIn = z.object({
 
 const TeamIn = z.object({
   placement: nonNegInt.optional(),
+  // rounds_won : score de manches de l'equipe (ex. 5 pour un 5:4). Optionnel,
+  // passthrough. Pour le chemin image (Lot 2), ce sera la source de verite du
+  // placement (gagnant = plus de rounds_won).
+  rounds_won: nonNegInt.optional(),
   players: z.array(PlayerIn).min(1),
 });
 
@@ -163,6 +167,7 @@ export interface PlayerOut {
 
 export interface TeamOut {
   placement?: number;
+  rounds_won?: number;
   players: PlayerOut[];
 }
 

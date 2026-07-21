@@ -76,6 +76,9 @@ Détails pratiques :
 - **`is_mvp` (booléen, optionnel, par joueur)** : badge MVP. Passthrough — lu en
   entrée, réémis tel quel dans `teams[].players[].is_mvp`, jamais déduit côté
   service. Voir `examples/web-codm-tdm.json`.
+- **`rounds_won` (entier, optionnel, par équipe)** : score de manches (ex. `5`
+  pour un 5:4). Passthrough dans `teams[].rounds_won`. Sur le chemin image (Lot 2),
+  ce sera la source de vérité du placement (gagnant = plus de `rounds_won`).
 
 ## Ce que vous recevez
 
