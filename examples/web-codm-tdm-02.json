@@ -1,0 +1,32 @@
+{
+  "source": "web",
+  "game": "codm",
+  "mode": "team_deathmatch",
+  "captured_at": "2019-07-26T22:35:04Z",
+  "extracted": {
+    "teams": [
+      {
+        "placement": 2,
+        "rounds_won": 3,
+        "players": [
+          { "pseudo": "AZ-Angelos",      "kills": 11, "deaths": 6, "assists": 1, "is_mvp": true },
+          { "pseudo": "AZ-7.180",        "kills": 5,  "deaths": 7, "assists": 1 },
+          { "pseudo": "AZ-hawwaw(Hawa)",  "kills": 4,  "deaths": 7, "assists": 0 },
+          { "pseudo": "AZ-Alk_pc(Paul)",  "kills": 3,  "deaths": 6, "assists": 1 },
+          { "pseudo": "AZ-montaha",      "kills": 2,  "deaths": 7, "assists": 2 }
+        ]
+      },
+      {
+        "placement": 1,
+        "rounds_won": 5,
+        "players": [
+          { "pseudo": "__Shadow890__",   "kills": 9,  "deaths": 4, "assists": 2, "is_mvp": true },
+          { "pseudo": "ŠØFメsonika",      "kills": 7,  "deaths": 4, "assists": 3 },
+          { "pseudo": "Sßひ↑Køsmøs",       "kills": 7,  "deaths": 6, "assists": 0 },
+          { "pseudo": "↵SAKURA↵",        "kills": 7,  "deaths": 5, "assists": 0 },
+          { "pseudo": "Çłøŵɳ¹³",         "kills": 3,  "deaths": 6, "assists": 0 }
+        ]
+      }
+    ]
+  }
+}

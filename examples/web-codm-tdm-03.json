@@ -1,0 +1,32 @@
+{
+  "source": "web",
+  "game": "codm",
+  "mode": "team_deathmatch",
+  "captured_at": "2018-07-26T23:30:47Z",
+  "extracted": {
+    "teams": [
+      {
+        "placement": 2,
+        "rounds_won": 0,
+        "players": [
+          { "pseudo": "AZ-Angelos",      "kills": 5,  "deaths": 5, "assists": 0, "is_mvp": true },
+          { "pseudo": "AZ-Alk_pc(Paul)",  "kills": 3,  "deaths": 5, "assists": 0 },
+          { "pseudo": "AZ-SSKKAARRR",    "kills": 3,  "deaths": 5, "assists": 0 },
+          { "pseudo": "Scusix",          "kills": 2,  "deaths": 5, "assists": 0 },
+          { "pseudo": "AZ-hawwaw(Hawa)",  "kills": 1,  "deaths": 5, "assists": 1 }
+        ]
+      },
+      {
+        "placement": 1,
+        "rounds_won": 5,
+        "players": [
+          { "pseudo": ">KraivenxFearx",  "kills": 14, "deaths": 1, "assists": 0, "is_mvp": true },
+          { "pseudo": "...506..",        "kills": 5,  "deaths": 3, "assists": 0 },
+          { "pseudo": "PAABIO1",         "kills": 3,  "deaths": 5, "assists": 0 },
+          { "pseudo": "↵perla",          "kills": 2,  "deaths": 2, "assists": 0 },
+          { "pseudo": "¤T¤O¤J¤I¤¤",      "kills": 1,  "deaths": 3, "assists": 0 }
+        ]
+      }
+    ]
+  }
+}
