@@ -79,6 +79,14 @@ Détails pratiques :
 - **`rounds_won` (entier, optionnel, par équipe)** : score de manches (ex. `5`
   pour un 5:4). Passthrough dans `teams[].rounds_won`. Sur le chemin image (Lot 2),
   ce sera la source de vérité du placement (gagnant = plus de `rounds_won`).
+- **`pseudo_confidence` (flottant 0–1, optionnel, par joueur)** : confiance
+  **spécifique à la lecture du pseudo** (souvent basse pour les pseudos stylisés).
+  Découplée de `confidence` : elle **ne rejette jamais** le match (pas de `422`),
+  elle sert **uniquement** à lever un `warning low_confidence_pseudo` pour la
+  validation humaine. À l'inverse, `confidence` (par joueur) porte la confiance
+  des **stats** (kills/deaths/assists) et alimente, elle, la confiance globale et
+  le seuil `422`. Ainsi un scoreboard aux chiffres parfaits mais pseudos stylisés
+  passe en `200` (avec des warnings), au lieu d'être rejeté à tort.
 
 ## Ce que vous recevez
 

@@ -20,8 +20,10 @@ export interface OcrPlayer {
   deaths: number | null;
   assists: number | null;
   score: number | null;
-  /** min des confidences des cellules du joueur (§5.3). */
+  /** confiance des STATS (cellule É/M/A) : alimente la confiance globale + 422. */
   confidence: number;
+  /** confiance de lecture du pseudo : sert au warning, jamais au 422. */
+  pseudo_confidence: number;
   cells: { pseudo: OcrCell; score: OcrCell; ema: OcrCell };
 }
 
@@ -146,11 +148,11 @@ export async function runOcr(
           deaths: ema.deaths,
           assists: ema.assists,
           score: parseInt0(scoreCell.text),
-          confidence: Math.min(
-            pseudoCell.confidence,
-            scoreCell.confidence,
-            emaCell.confidence
-          ),
+          // confiance des STATS = celle de la cellule É/M/A (les chiffres transmis).
+          // Le score (non transmis) et le pseudo (souvent stylise) n'entrent PAS ici,
+          // pour ne pas faire rejeter en 422 un match aux stats parfaites.
+          confidence: emaCell.confidence,
+          pseudo_confidence: pseudoCell.confidence,
           cells: { pseudo: pseudoCell, score: scoreCell, ema: emaCell },
         });
       }

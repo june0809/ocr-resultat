@@ -30,6 +30,7 @@ interface Row {
   score: number | null;
   is_mvp: boolean;
   confidence: number;
+  pseudo_confidence: number;
 }
 
 const LOW_CONF = 0.75; // seuil de surbrillance (§5.3)
@@ -84,6 +85,7 @@ export default function UploadPage() {
       // repli MVP fiable : le plus gros SCORE de l'equipe (§ demande The Circle)
       is_mvp: p.score !== null && p.score === maxScore,
       confidence: p.confidence,
+      pseudo_confidence: p.pseudo_confidence,
     }));
   }, []);
 
@@ -122,6 +124,7 @@ export default function UploadPage() {
         assists: r.assists,
         is_mvp: r.is_mvp,
         confidence: r.confidence,
+        pseudo_confidence: r.pseudo_confidence,
       }));
     return {
       source: "web" as const,
@@ -388,17 +391,17 @@ function TeamTable({
         </thead>
         <tbody>
           {rows.map((r, i) => {
-            const low = r.confidence < LOW_CONF;
-            const cell = low ? S.tdLow : S.td;
+            const statCell = r.confidence < LOW_CONF ? S.tdLow : S.td;
+            const pseudoCell = r.pseudo_confidence < LOW_CONF ? S.tdLow : S.td;
             return (
               <tr key={i}>
-                <td style={cell}>
+                <td style={pseudoCell}>
                   <input value={r.pseudo} onChange={(e) => upd(i, { pseudo: e.target.value })} style={S.cellIn} />
                 </td>
-                <td style={cell}><input type="number" value={r.kills} onChange={(e) => upd(i, { kills: +e.target.value })} style={S.cellNum} /></td>
-                <td style={cell}><input type="number" value={r.deaths} onChange={(e) => upd(i, { deaths: +e.target.value })} style={S.cellNum} /></td>
-                <td style={cell}><input type="number" value={r.assists} onChange={(e) => upd(i, { assists: +e.target.value })} style={S.cellNum} /></td>
-                <td style={cell}><input type="number" value={r.score ?? 0} onChange={(e) => upd(i, { score: +e.target.value })} style={S.cellNum} /></td>
+                <td style={statCell}><input type="number" value={r.kills} onChange={(e) => upd(i, { kills: +e.target.value })} style={S.cellNum} /></td>
+                <td style={statCell}><input type="number" value={r.deaths} onChange={(e) => upd(i, { deaths: +e.target.value })} style={S.cellNum} /></td>
+                <td style={statCell}><input type="number" value={r.assists} onChange={(e) => upd(i, { assists: +e.target.value })} style={S.cellNum} /></td>
+                <td style={statCell}><input type="number" value={r.score ?? 0} onChange={(e) => upd(i, { score: +e.target.value })} style={S.cellNum} /></td>
                 <td style={S.td}><input type="checkbox" checked={r.is_mvp} onChange={(e) => upd(i, { is_mvp: e.target.checked })} /></td>
                 <td style={S.td}>{r.confidence.toFixed(2)}</td>
               </tr>

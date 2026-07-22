@@ -37,15 +37,20 @@ export function buildResponse(body: WebMatchBody): BuildResult {
     placement: team.placement,
     ...(team.rounds_won !== undefined ? { rounds_won: team.rounds_won } : {}),
     players: team.players.map((p) => {
-      // confidence optionnelle -> 1.0 par defaut (lecture web deja propre).
+      // confidence (stats) optionnelle -> 1.0 par defaut. Alimente la confiance
+      // globale et le gate 422.
       const confidence = p.confidence ?? 1;
       confidences.push(confidence);
 
-      if (confidence < warnThreshold) {
+      // Le warning pseudo se base sur pseudo_confidence si fournie (sinon repli
+      // sur confidence). Il ne rejette jamais le match : simple signal pour la
+      // validation humaine.
+      const pseudoConf = p.pseudo_confidence ?? confidence;
+      if (pseudoConf < warnThreshold) {
         warnings.push({
           code: "low_confidence_pseudo",
           player: p.pseudo,
-          detail: `${confidence.toFixed(2)} < ${warnThreshold.toFixed(2)}`,
+          detail: `${pseudoConf.toFixed(2)} < ${warnThreshold.toFixed(2)}`,
         });
       }
 

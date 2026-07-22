@@ -89,7 +89,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // 5. Construction de la reponse + seuil exploitable --------------------
     const { response, globalConfidence } = buildResponse(body);
 
-    const minUsable = num("CONFIDENCE_MIN_USABLE", 0.5);
+    // Seuil bas volontairement : le flux nominal passe TOUJOURS par la validation
+    // humaine (§9). Le 422 ne doit rejeter qu'un scoreboard vraiment illisible, pas
+    // un match aux chiffres bons mais pseudos stylises (basse confiance attendue).
+    const minUsable = num("CONFIDENCE_MIN_USABLE", 0.3);
     if (globalConfidence < minUsable) {
       return withHeaders(
         errorResponse(

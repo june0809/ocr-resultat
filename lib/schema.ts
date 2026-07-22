@@ -26,9 +26,14 @@ const PlayerIn = z.object({
   deaths: nonNegInt,
   // assists optionnel : certains jeux ne l'affichent pas (§6.2)
   assists: nonNegInt.optional(),
-  // confidence optionnelle : si omise (lecture web deja propre), 1.0 par defaut
-  // est applique dans lib/response.ts.
+  // confidence optionnelle : confiance dans les STATS du joueur (kills/deaths/
+  // assists). C'est elle qui alimente la confiance globale et le gate 422. Si
+  // omise, 1.0 par defaut (lib/response.ts).
   confidence: z.number().min(0).max(1).optional(),
+  // pseudo_confidence : confiance SPECIFIQUE a la lecture du pseudo (souvent basse
+  // pour les pseudos stylises). N'impacte PAS le 422 : sert uniquement a lever un
+  // warning low_confidence_pseudo pour la validation humaine (§9). Optionnel.
+  pseudo_confidence: z.number().min(0).max(1).optional(),
   // placement au niveau joueur : uniquement pour free_for_all (§6.2)
   placement: nonNegInt.optional(),
   // is_mvp : badge MVP par joueur (champ generique esport). Passthrough : lu en
