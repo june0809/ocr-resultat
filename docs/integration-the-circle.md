@@ -79,8 +79,8 @@ Détails pratiques :
   - **MVP doré vs argenté** : pas besoin d'un champ séparé. Le MVP **gagnant**
     (badge doré) = `is_mvp` sur l'équipe `placement: 1` ; le MVP **perdant**
     (badge argenté, celui de votre bonus) = `is_mvp` sur l'équipe `placement: 2`.
-    Sur le chemin image, `is_mvp` est détecté par la **couleur du badge** (fiable),
-    pas par le score.
+    Sur le chemin image, `is_mvp` = le meilleur score de chaque équipe (1re ligne
+    du tableau, trié par score), fiable quelle que soit la résolution.
 - **`rounds_won` (entier, optionnel, par équipe)** : score de manches (ex. `5`
   pour un 5:4). Passthrough dans `teams[].rounds_won`. Sur le chemin image (Lot 2),
   ce sera la source de vérité du placement (gagnant = plus de `rounds_won`).

@@ -34,9 +34,6 @@ export interface TableTemplate {
   /** Lignes, RELATIVES a la boite : 1re ligne a `top`, chacune de hauteur `height`. */
   rows: { top: number; height: number; count: number };
   columns: Column[];
-  /** Zone du badge MVP (entre pseudo et score), RELATIVE a la boite. Detectee par
-   *  couleur (dore = MVP gagnant, argente = MVP perdant). Optionnel. */
-  mvpBadge?: { x: number; width: number };
 }
 
 export interface GameTemplate {
@@ -51,36 +48,38 @@ export interface GameTemplate {
  * rang (0–0.14) et avatar (0.14–0.20) ignores. La disposition interne des deux
  * tableaux est symetrique (verifie : score et É/M/A tombent aux memes fractions).
  */
-const SND_COLUMNS: Column[] = [
-  { field: "pseudo", type: "text", x: 0.2, width: 0.28 },
-  { field: "score", type: "int", x: 0.48, width: 0.16 },
-  { field: "ema", type: "ema", x: 0.65, width: 0.18 },
-  // impact (0.85–1.0) ignore : non utilise cote The Circle.
+// Colonnes RELATIVES a la boite detectee (= etendue de la barre d'en-tete).
+// Valeurs validees sur les 4 vraies captures (classees 5v5 + tournoi 4v4).
+export const SND_COLUMNS: Column[] = [
+  { field: "pseudo", type: "text", x: 0.15, width: 0.24 },
+  { field: "score", type: "int", x: 0.42, width: 0.15 },
+  { field: "ema", type: "ema", x: 0.58, width: 0.17 },
+  // impact (>0.8) ignore : non utilise cote The Circle.
 ];
+/** Construit les 2 tableaux CODM S&D a partir des boites (auto-detectees ou
+ *  ajustees a la main) et du nombre de joueurs par equipe. */
+export function codmSndTables(
+  blueBox: TableTemplate["box"],
+  redBox: TableTemplate["box"],
+  count: number
+): TableTemplate[] {
+  const rows = { top: 0, height: 1 / count, count };
+  return [
+    { side: "blue", box: blueBox, rows, columns: SND_COLUMNS },
+    { side: "red", box: redBox, rows, columns: SND_COLUMNS },
+  ];
+}
 
-const SND_ROWS = { top: 0.0, height: 0.2, count: 5 };
-
+/** Template par defaut (boites approximatives ; en pratique l'auto-detection
+ *  remplace les boites au chargement de l'image). count par defaut = 4. */
 export const CODM_SND: GameTemplate = {
   game: "codm",
   mode: "team_deathmatch",
-  tables: [
-    {
-      // equipe bleue (gauche) : x 0.015..0.48, lignes 0.273..0.69
-      side: "blue",
-      box: { x: 0.015, y: 0.273, width: 0.465, height: 0.417 },
-      rows: SND_ROWS,
-      columns: SND_COLUMNS,
-      mvpBadge: { x: 0.42, width: 0.2 },
-    },
-    {
-      // equipe rouge (droite), symetrique
-      side: "red",
-      box: { x: 0.505, y: 0.273, width: 0.465, height: 0.417 },
-      rows: SND_ROWS,
-      columns: SND_COLUMNS,
-      mvpBadge: { x: 0.42, width: 0.2 },
-    },
-  ],
+  tables: codmSndTables(
+    { x: 0.01, y: 0.3, width: 0.49, height: 0.45 },
+    { x: 0.5, y: 0.3, width: 0.49, height: 0.45 },
+    4
+  ),
 };
 
 /** Rectangle absolu (px) d'une cellule dans l'image, a partir du template + dims. */

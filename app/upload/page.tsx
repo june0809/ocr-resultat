@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { CODM_SND, type GameTemplate } from "@/lib/ocr/template";
+import { CODM_SND, SND_COLUMNS, codmSndTables, type GameTemplate } from "@/lib/ocr/template";
+import { autoDetectTables } from "@/lib/ocr/detect";
 import { runOcr, type OcrResult } from "@/lib/ocr/pipeline";
 
 /**
@@ -42,6 +43,8 @@ export default function UploadPage() {
 
   const [blueBox, setBlueBox] = useState<Box>(CODM_SND.tables[0].box);
   const [redBox, setRedBox] = useState<Box>(CODM_SND.tables[1].box);
+  const [teamSize, setTeamSize] = useState<number>(4);
+  const [detectMsg, setDetectMsg] = useState<string | null>(null);
 
   const [blueRounds, setBlueRounds] = useState<number>(0);
   const [redRounds, setRedRounds] = useState<number>(0);
@@ -63,14 +66,26 @@ export default function UploadPage() {
 
   const template: GameTemplate = useMemo(
     () => ({
-      ...CODM_SND,
-      tables: [
-        { ...CODM_SND.tables[0], box: blueBox },
-        { ...CODM_SND.tables[1], box: redBox },
-      ],
+      game: "codm",
+      mode: "team_deathmatch",
+      tables: codmSndTables(blueBox, redBox, teamSize),
     }),
-    [blueBox, redBox]
+    [blueBox, redBox, teamSize]
   );
+
+  // Auto-detection des tableaux au chargement de l'image (barres d'en-tete).
+  const onImgLoad = useCallback(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const det = autoDetectTables(img, img.naturalWidth, img.naturalHeight);
+    if (det) {
+      setBlueBox(det.blue);
+      setRedBox(det.red);
+      setDetectMsg("Tableaux détectés automatiquement. Ajustez si besoin.");
+    } else {
+      setDetectMsg("Détection auto impossible : alignez la grille à la main.");
+    }
+  }, []);
 
   const toRows = useCallback((res: OcrResult, side: "blue" | "red"): Row[] => {
     const team = res.teams.find((t) => t.side === side);
@@ -175,10 +190,22 @@ export default function UploadPage() {
       {imgUrl && (
         <>
           <section style={S.section}>
-            <h2>1. Aligner la grille</h2>
+            <h2>1. Nombre de joueurs par équipe</h2>
             <p style={S.hint}>
-              Déplacez chaque tableau (glisser) et ajustez le coin bas-droit sur les
-              5 lignes de joueurs. Bleu = équipe gauche, rouge = droite.
+              4 en tournoi, 5 en classé. La grille s&apos;ajuste en conséquence.
+            </p>
+            {[4, 5].map((n) => (
+              <label key={n} style={{ marginRight: 16 }}>
+                <input type="radio" name="teamSize" checked={teamSize === n} onChange={() => setTeamSize(n)} /> {n}v{n}
+              </label>
+            ))}
+          </section>
+
+          <section style={S.section}>
+            <h2>2. Aligner la grille</h2>
+            <p style={S.hint}>
+              {detectMsg ?? "Chargez une capture."} Déplacez chaque tableau (glisser) et
+              ajustez le coin bas-droit sur les {teamSize} lignes. Bleu = gauche, rouge = droite.
             </p>
             <div ref={containerRef} style={S.imgWrap}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -186,15 +213,16 @@ export default function UploadPage() {
                 ref={imgRef}
                 src={imgUrl}
                 alt="capture"
+                onLoad={onImgLoad}
                 style={{ width: "100%", display: "block" }}
               />
-              <AlignBox box={blueBox} onChange={setBlueBox} color="#3b82f6" containerRef={containerRef} />
-              <AlignBox box={redBox} onChange={setRedBox} color="#ef4444" containerRef={containerRef} />
+              <AlignBox box={blueBox} onChange={setBlueBox} color="#3b82f6" containerRef={containerRef} count={teamSize} />
+              <AlignBox box={redBox} onChange={setRedBox} color="#ef4444" containerRef={containerRef} count={teamSize} />
             </div>
           </section>
 
           <section style={S.section}>
-            <h2>2. Score de manches</h2>
+            <h2>3. Score de manches</h2>
             <p style={S.hint}>
               Le score en haut à gauche (bleu:rouge). C&apos;est lui qui décide du
               placement — pas le mot VICTOIRE/DÉFAITE.
@@ -214,7 +242,7 @@ export default function UploadPage() {
           </section>
 
           <section style={S.section}>
-            <h2>3. Lancer l&apos;OCR</h2>
+            <h2>4. Lancer l&apos;OCR</h2>
             <button onClick={launchOcr} disabled={busy} style={S.btn}>
               {busy && progress ? `OCR… ${progress.done}/${progress.total}` : "Lancer l'OCR"}
             </button>
@@ -224,7 +252,7 @@ export default function UploadPage() {
 
       {(blue.length > 0 || red.length > 0) && (
         <section style={S.section}>
-          <h2>4. Vérifier &amp; corriger</h2>
+          <h2>5. Vérifier &amp; corriger</h2>
           <p style={S.hint}>
             Les cases surlignées sont en basse confiance. Corrigez puis envoyez.
           </p>
@@ -232,7 +260,7 @@ export default function UploadPage() {
           <TeamTable title="Équipe rouge (droite)" rows={red} setRows={setRed} />
 
           <section style={S.section}>
-            <h2>5. Envoyer</h2>
+            <h2>6. Envoyer</h2>
             <label>
               Clé d&apos;API&nbsp;
               <input
@@ -260,11 +288,13 @@ function AlignBox({
   onChange,
   color,
   containerRef,
+  count,
 }: {
   box: Box;
   onChange: (b: Box) => void;
   color: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  count: number;
 }) {
   const startDrag = (mode: "move" | "resize") => (e: React.PointerEvent) => {
     e.preventDefault();
@@ -317,23 +347,29 @@ function AlignBox({
         background: `${color}18`,
       }}
     >
-      {/* guides : 5 lignes */}
-      {[1, 2, 3, 4].map((i) => (
+      {/* guides : lignes (= count joueurs) */}
+      {Array.from({ length: count - 1 }, (_, k) => k + 1).map((i) => (
         <div
           key={i}
           style={{
             position: "absolute",
             left: 0,
             right: 0,
-            top: pct(i / 5),
+            top: pct(i / count),
             borderTop: `1px dashed ${color}80`,
           }}
         />
       ))}
-      {/* guides : colonnes pseudo | score | ema */}
-      {[0.62, 0.76].map((x) => (
+      {/* guides : bornes de colonnes pseudo | score | ema (cf. SND_COLUMNS) */}
+      {[
+        SND_COLUMNS[0].x,
+        SND_COLUMNS[1].x,
+        SND_COLUMNS[1].x + SND_COLUMNS[1].width,
+        SND_COLUMNS[2].x,
+        SND_COLUMNS[2].x + SND_COLUMNS[2].width,
+      ].map((x, idx) => (
         <div
-          key={x}
+          key={idx}
           style={{
             position: "absolute",
             top: 0,
