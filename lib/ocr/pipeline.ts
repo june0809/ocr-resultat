@@ -26,6 +26,8 @@ export interface OcrPlayer {
   confidence: number;
   /** confiance de lecture du pseudo : sert au warning, jamais au 422. */
   pseudo_confidence: number;
+  /** dataURL de la bande d'image de la ligne (verif visuelle image -> JSON). */
+  rowImage: string;
   cells: { pseudo: OcrCell; score: OcrCell; ema: OcrCell };
 }
 
@@ -95,6 +97,19 @@ function cropCell(
   }
   ctx.putImageData(img, 0, 0);
   return c;
+}
+
+/** Bande d'image d'une ligne (couleur, sans pretraitement), en dataURL PNG. */
+function rowImageUrl(
+  source: CanvasImageSource,
+  rect: { x: number; y: number; width: number; height: number }
+): string {
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(rect.width));
+  c.height = Math.max(1, Math.round(rect.height));
+  const ctx = c.getContext("2d")!;
+  ctx.drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, c.width, c.height);
+  return c.toDataURL("image/png");
 }
 
 const WHITELIST: Record<Column["type"], string> = {
@@ -174,6 +189,7 @@ export async function runOcr(
           // pour ne pas faire rejeter en 422 un match aux stats parfaites.
           confidence: emaCell.confidence,
           pseudo_confidence: pseudoCell.confidence,
+          rowImage: rowImageUrl(source, cellRect(table, row, { x: 0, width: 1 }, imgW, imgH)),
           cells: { pseudo: pseudoCell, score: scoreCell, ema: emaCell },
         });
       }

@@ -11,7 +11,7 @@ const KEY = "sk_d39H3u5uTxBs1OGrxxRCio7W3capk9Zn";
 
 const COLUMNS = [
   { field: "pseudo", type: "text", x: 0.16, width: 0.2 },
-  { field: "score", type: "int", x: 0.42, width: 0.15 },
+  { field: "score", type: "int", x: 0.4, width: 0.11 },
   { field: "ema", type: "ema", x: 0.58, width: 0.17 },
 ];
 const MVP_BADGE = { x: 0.33, width: 0.12 };

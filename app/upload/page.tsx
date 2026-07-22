@@ -32,6 +32,7 @@ interface Row {
   is_mvp: boolean;
   confidence: number;
   pseudo_confidence: number;
+  rowImage: string;
 }
 
 const LOW_CONF = 0.75; // seuil de surbrillance (§5.3)
@@ -96,10 +97,11 @@ export default function UploadPage() {
       deaths: p.deaths ?? 0,
       assists: p.assists ?? 0,
       score: p.score,
-      // MVP detecte par le badge dore/argente (fiable). Corrigible a la main.
+      // MVP = 1re ligne (meilleur score). Corrigible a la main.
       is_mvp: p.is_mvp,
       confidence: p.confidence,
       pseudo_confidence: p.pseudo_confidence,
+      rowImage: p.rowImage,
     }));
   }, []);
 
@@ -254,11 +256,14 @@ export default function UploadPage() {
         <section style={S.section}>
           <h2>5. Vérifier &amp; corriger</h2>
           <p style={S.hint}>
-            Les <b>chiffres</b> (K/D/A) sont fiables. Les <b>pseudos</b> sont
-            souvent mal lus (avatars et badges collés au texte) : <b>vérifiez-les
-            tous</b> et corrigez avant d&apos;envoyer — c&apos;est ce texte corrigé,
-            pas le brut de l&apos;OCR, qui part vers The Circle. Cases jaunes = basse
-            confiance.
+            <b>Double vérification</b> : chaque ligne montre <b>la vraie bande
+            d&apos;image</b> juste au-dessus du texte lu — comparez d&apos;un coup
+            d&apos;œil. Les <b>chiffres</b> (K/D/A) sont fiables ; les <b>pseudos</b>
+            sont souvent mal lus (avatars/badges) : vérifiez-les tous. C&apos;est le
+            texte <b>corrigé</b> qui part vers The Circle, pas le brut de l&apos;OCR.
+            Cases <span style={{ background: "#fff3cd" }}>jaunes</span> = basse
+            confiance ; <span style={{ background: "#f8d7da" }}>rouges</span> = score
+            incohérent (supérieur à la ligne du dessus).
           </p>
           <TeamTable title="Équipe bleue (gauche)" rows={blue} setRows={setBlue} />
           <TeamTable title="Équipe rouge (droite)" rows={red} setRows={setRed} />
@@ -413,13 +418,17 @@ function TeamTable({
   const upd = (i: number, patch: Partial<Row>) =>
     setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
+  // Verif de coherence (JSON -> image) : le board est trie par score decroissant.
+  // Une ligne dont le score depasse la precedente = probable erreur de lecture.
+  const orderBroken = rows.map((r, i) => i > 0 && r.score != null && rows[i - 1].score != null && r.score > (rows[i - 1].score as number));
+
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 20 }}>
       <h3>{title}</h3>
       <table style={S.table}>
         <thead>
           <tr>
-            <th>Pseudo</th>
+            <th style={{ width: "42%" }}>Capture ▸ Pseudo</th>
             <th>K</th>
             <th>D</th>
             <th>A</th>
@@ -431,16 +440,21 @@ function TeamTable({
         <tbody>
           {rows.map((r, i) => {
             const statCell = r.confidence < LOW_CONF ? S.tdLow : S.td;
-            const pseudoCell = r.pseudo_confidence < LOW_CONF ? S.tdLow : S.td;
+            const pseudoLow = r.pseudo_confidence < LOW_CONF;
+            const scoreCell = orderBroken[i] ? S.tdWarn : statCell;
             return (
               <tr key={i}>
-                <td style={pseudoCell}>
+                <td style={pseudoLow ? S.tdLow : S.td}>
+                  {/* verif visuelle : la vraie bande d'image au-dessus du texte lu */}
+                  {r.rowImage && (
+                    <img src={r.rowImage} alt="ligne" style={{ display: "block", width: "100%", marginBottom: 3, border: "1px solid #ccc" }} />
+                  )}
                   <input value={r.pseudo} onChange={(e) => upd(i, { pseudo: e.target.value })} style={S.cellIn} />
                 </td>
                 <td style={statCell}><input type="number" value={r.kills} onChange={(e) => upd(i, { kills: +e.target.value })} style={S.cellNum} /></td>
                 <td style={statCell}><input type="number" value={r.deaths} onChange={(e) => upd(i, { deaths: +e.target.value })} style={S.cellNum} /></td>
                 <td style={statCell}><input type="number" value={r.assists} onChange={(e) => upd(i, { assists: +e.target.value })} style={S.cellNum} /></td>
-                <td style={statCell}><input type="number" value={r.score ?? 0} onChange={(e) => upd(i, { score: +e.target.value })} style={S.cellNum} /></td>
+                <td style={scoreCell} title={orderBroken[i] ? "Score supérieur à la ligne précédente : à vérifier" : undefined}><input type="number" value={r.score ?? 0} onChange={(e) => upd(i, { score: +e.target.value })} style={S.cellNum} /></td>
                 <td style={S.td}><input type="checkbox" checked={r.is_mvp} onChange={(e) => upd(i, { is_mvp: e.target.checked })} /></td>
                 <td style={S.td}>{r.confidence.toFixed(2)}</td>
               </tr>
@@ -466,6 +480,7 @@ const S: Record<string, React.CSSProperties> = {
   table: { borderCollapse: "collapse", width: "100%" },
   td: { border: "1px solid #ddd", padding: 2, textAlign: "center" },
   tdLow: { border: "1px solid #ddd", padding: 2, textAlign: "center", background: "#fff3cd" },
+  tdWarn: { border: "1px solid #e0a0a0", padding: 2, textAlign: "center", background: "#f8d7da" },
   cellIn: { width: "100%", boxSizing: "border-box", padding: 4 },
   cellNum: { width: 48, padding: 4, textAlign: "center" },
   result: { background: "#f6f8fa", padding: 12, overflowX: "auto", marginTop: 12 },
