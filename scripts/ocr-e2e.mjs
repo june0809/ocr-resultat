@@ -17,11 +17,21 @@ const COLUMNS = [
   { field: "ema", type: "ema", x: 0.65, width: 0.18 },
 ];
 const ROWS = { top: 0.0, height: 0.2, count: 5 };
+const MVP_BADGE = { x: 0.42, width: 0.2 };
 const TABLES = [
   { side: "blue", box: { x: 0.015, y: 0.273, width: 0.465, height: 0.417 } },
   { side: "red", box: { x: 0.505, y: 0.273, width: 0.465, height: 0.417 } },
 ];
 const WHITELIST = { text: "", int: "0123456789", ema: "0123456789/" };
+
+const isGold = (r, g, b) => r > 150 && g > 115 && b < 110 && r - b > 55 && g - b > 35;
+const isSilver = (r, g, b) => r > 120 && g > 130 && b > 140 && Math.max(r, g, b) - Math.min(r, g, b) < 45 && b >= r;
+async function badgeScore(file, rect) {
+  const { data, info } = await sharp(file).extract(rect).raw().toBuffer({ resolveWithObject: true });
+  let hit = 0; const px = info.width * info.height;
+  for (let i = 0; i < data.length; i += info.channels) if (isGold(data[i], data[i + 1], data[i + 2]) || isSilver(data[i], data[i + 1], data[i + 2])) hit++;
+  return hit / px;
+}
 
 // capture -> [manches gauche, manches droite] + fichier verite terrain
 const CASES = [
@@ -47,6 +57,7 @@ async function ocrImage(worker, file) {
   const teams = [];
   for (const table of TABLES) {
     const players = [];
+    const badges = [];
     for (let row = 0; row < ROWS.count; row++) {
       const by = {};
       for (const col of COLUMNS) {
@@ -56,15 +67,20 @@ async function ocrImage(worker, file) {
         const { data } = await worker.recognize(buf);
         by[col.field] = { text: data.text.trim().replace(/\s+/g, col.type === "text" ? " " : ""), conf: data.confidence / 100 };
       }
+      badges.push(await badgeScore(file, cellRect(table.box, row, MVP_BADGE, W, H)));
       const ema = parseEma(by.ema.text);
       players.push({
         pseudo: by.pseudo.text,
         kills: ema.kills ?? 0, deaths: ema.deaths ?? 0, assists: ema.assists ?? 0,
         score: parseInt0(by.score.text),
+        is_mvp: false,
         confidence: by.ema.conf,
         pseudo_confidence: by.pseudo.conf,
       });
     }
+    let best = 0;
+    for (let i = 1; i < badges.length; i++) if (badges[i] > badges[best]) best = i;
+    if (badges[best] > 0.04) players[best].is_mvp = true;
     teams.push({ side: table.side, players });
   }
   return teams;
@@ -74,13 +90,12 @@ function buildBody(teams, rounds) {
   const [bl, rd] = rounds;
   const place = (side) => (side === "blue" ? (bl >= rd ? 1 : 2) : (bl >= rd ? 2 : 1));
   const mk = (t) => {
-    const max = Math.max(...t.players.map((p) => p.score ?? -1));
     return {
       placement: place(t.side),
       rounds_won: t.side === "blue" ? bl : rd,
       players: t.players.map((p) => ({
         pseudo: p.pseudo, kills: p.kills, deaths: p.deaths, assists: p.assists,
-        is_mvp: p.score !== null && p.score === max,
+        is_mvp: p.is_mvp,
         confidence: Math.max(0.01, Math.min(1, p.confidence)),
         pseudo_confidence: Math.max(0, Math.min(1, p.pseudo_confidence)),
       })),

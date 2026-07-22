@@ -75,15 +75,14 @@ export default function UploadPage() {
   const toRows = useCallback((res: OcrResult, side: "blue" | "red"): Row[] => {
     const team = res.teams.find((t) => t.side === side);
     if (!team) return [];
-    const maxScore = Math.max(...team.players.map((p) => p.score ?? -1));
     return team.players.map((p) => ({
       pseudo: p.pseudo,
       kills: p.kills ?? 0,
       deaths: p.deaths ?? 0,
       assists: p.assists ?? 0,
       score: p.score,
-      // repli MVP fiable : le plus gros SCORE de l'equipe (§ demande The Circle)
-      is_mvp: p.score !== null && p.score === maxScore,
+      // MVP detecte par le badge dore/argente (fiable). Corrigible a la main.
+      is_mvp: p.is_mvp,
       confidence: p.confidence,
       pseudo_confidence: p.pseudo_confidence,
     }));

@@ -34,6 +34,9 @@ export interface TableTemplate {
   /** Lignes, RELATIVES a la boite : 1re ligne a `top`, chacune de hauteur `height`. */
   rows: { top: number; height: number; count: number };
   columns: Column[];
+  /** Zone du badge MVP (entre pseudo et score), RELATIVE a la boite. Detectee par
+   *  couleur (dore = MVP gagnant, argente = MVP perdant). Optionnel. */
+  mvpBadge?: { x: number; width: number };
 }
 
 export interface GameTemplate {
@@ -67,6 +70,7 @@ export const CODM_SND: GameTemplate = {
       box: { x: 0.015, y: 0.273, width: 0.465, height: 0.417 },
       rows: SND_ROWS,
       columns: SND_COLUMNS,
+      mvpBadge: { x: 0.42, width: 0.2 },
     },
     {
       // equipe rouge (droite), symetrique
@@ -74,6 +78,7 @@ export const CODM_SND: GameTemplate = {
       box: { x: 0.505, y: 0.273, width: 0.465, height: 0.417 },
       rows: SND_ROWS,
       columns: SND_COLUMNS,
+      mvpBadge: { x: 0.42, width: 0.2 },
     },
   ],
 };
@@ -82,7 +87,7 @@ export const CODM_SND: GameTemplate = {
 export function cellRect(
   table: TableTemplate,
   rowIndex: number,
-  col: Column,
+  col: { x: number; width: number },
   imgW: number,
   imgH: number
 ): { x: number; y: number; width: number; height: number } {

@@ -20,6 +20,8 @@ export interface OcrPlayer {
   deaths: number | null;
   assists: number | null;
   score: number | null;
+  /** MVP detecte par le badge (dore/argente). Un seul par equipe. */
+  is_mvp: boolean;
   /** confiance des STATS (cellule É/M/A) : alimente la confiance globale + 422. */
   confidence: number;
   /** confiance de lecture du pseudo : sert au warning, jamais au 422. */
@@ -89,6 +91,33 @@ const WHITELIST: Record<Column["type"], string> = {
   ema: "0123456789/",
 };
 
+// Detection du badge MVP par couleur. dore = MVP gagnant, argente = MVP perdant.
+const isGold = (r: number, g: number, b: number) =>
+  r > 150 && g > 115 && b < 110 && r - b > 55 && g - b > 35;
+const isSilver = (r: number, g: number, b: number) =>
+  r > 120 && g > 130 && b > 140 && Math.max(r, g, b) - Math.min(r, g, b) < 45 && b >= r;
+
+/** Fraction de pixels "badge" (dore+argente) dans un rectangle. */
+function badgeScore(
+  source: CanvasImageSource,
+  rect: { x: number; y: number; width: number; height: number }
+): number {
+  const w = Math.max(1, Math.round(rect.width));
+  const h = Math.max(1, Math.round(rect.height));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, w, h);
+  const { data } = ctx.getImageData(0, 0, w, h);
+  let hit = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (isGold(data[i], data[i + 1], data[i + 2]) || isSilver(data[i], data[i + 1], data[i + 2])) hit++;
+  }
+  return hit / (w * h);
+}
+
 async function recognizeCell(
   worker: Worker,
   canvas: HTMLCanvasElement,
@@ -126,6 +155,7 @@ export async function runOcr(
 
     for (const table of template.tables) {
       const players: OcrPlayer[] = [];
+      const badgeScores: number[] = [];
 
       for (let row = 0; row < table.rows.count; row++) {
         const byField: Record<string, OcrCell> = {};
@@ -136,6 +166,13 @@ export async function runOcr(
           byField[col.field] = cell;
           onProgress?.(++done, total);
         }
+
+        // signal du badge MVP pour cette ligne (0 si pas de zone definie)
+        badgeScores.push(
+          table.mvpBadge
+            ? badgeScore(source, cellRect(table, row, table.mvpBadge, imgW, imgH))
+            : 0
+        );
 
         const pseudoCell = byField.pseudo ?? { text: "", confidence: 0 };
         const scoreCell = byField.score ?? { text: "", confidence: 0 };
@@ -148,6 +185,7 @@ export async function runOcr(
           deaths: ema.deaths,
           assists: ema.assists,
           score: parseInt0(scoreCell.text),
+          is_mvp: false, // pose apres, sur la ligne au badge maximal
           // confiance des STATS = celle de la cellule É/M/A (les chiffres transmis).
           // Le score (non transmis) et le pseudo (souvent stylise) n'entrent PAS ici,
           // pour ne pas faire rejeter en 422 un match aux stats parfaites.
@@ -155,6 +193,14 @@ export async function runOcr(
           pseudo_confidence: pseudoCell.confidence,
           cells: { pseudo: pseudoCell, score: scoreCell, ema: emaCell },
         });
+      }
+
+      // MVP = ligne au signal badge (dore+argente) maximal, si un badge est present.
+      if (table.mvpBadge) {
+        let best = 0;
+        for (let i = 1; i < badgeScores.length; i++) if (badgeScores[i] > badgeScores[best]) best = i;
+        // seuil minimal pour eviter un faux positif si aucun badge lisible
+        if (badgeScores[best] > 0.04) players[best].is_mvp = true;
       }
 
       teams.push({ side: table.side, players });
