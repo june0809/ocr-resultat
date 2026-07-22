@@ -10,7 +10,7 @@ const BASE = "http://localhost:3000";
 const KEY = "sk_d39H3u5uTxBs1OGrxxRCio7W3capk9Zn";
 
 const COLUMNS = [
-  { field: "pseudo", type: "text", x: 0.15, width: 0.24 },
+  { field: "pseudo", type: "text", x: 0.16, width: 0.2 },
   { field: "score", type: "int", x: 0.42, width: 0.15 },
   { field: "ema", type: "ema", x: 0.58, width: 0.17 },
 ];
@@ -128,6 +128,8 @@ for (const c of CASES) {
   console.log(`  HTTP ${resp.status}  confidence=${json.confidence ?? "-"}  players=${c.size * 2}`);
   const mvps = json.teams?.flatMap((t) => t.players).filter((p) => p.is_mvp).map((p) => p.pseudo);
   console.log(`  MVP: ${mvps?.join(" | ")}   warnings=${json.warnings?.length ?? 0}`);
+  for (const t of [["blue", bluePlayers], ["red", redPlayers]])
+    for (const p of t[1]) console.log(`    ${t[0]} score=${String(p.score).padStart(4)} ema=${p.kills}/${p.deaths}/${p.assists}  pseudo="${p.pseudo}"`);
 }
 await worker.terminate();
 console.log(`\n==== É/M/A verite terrain : ${gOk}/${gTot} (${((gOk / gTot) * 100).toFixed(1)}%) ====`);

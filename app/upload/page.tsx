@@ -254,7 +254,11 @@ export default function UploadPage() {
         <section style={S.section}>
           <h2>5. Vérifier &amp; corriger</h2>
           <p style={S.hint}>
-            Les cases surlignées sont en basse confiance. Corrigez puis envoyez.
+            Les <b>chiffres</b> (K/D/A) sont fiables. Les <b>pseudos</b> sont
+            souvent mal lus (avatars et badges collés au texte) : <b>vérifiez-les
+            tous</b> et corrigez avant d&apos;envoyer — c&apos;est ce texte corrigé,
+            pas le brut de l&apos;OCR, qui part vers The Circle. Cases jaunes = basse
+            confiance.
           </p>
           <TeamTable title="Équipe bleue (gauche)" rows={blue} setRows={setBlue} />
           <TeamTable title="Équipe rouge (droite)" rows={red} setRows={setRed} />

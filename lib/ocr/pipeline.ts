@@ -60,7 +60,12 @@ export function parseInt0(raw: string): number | null {
   return m ? parseInt(m[0], 10) : null;
 }
 
-/** Decoupe une cellule dans un canvas offscreen, agrandie x3 pour aider l'OCR. */
+/**
+ * Decoupe une cellule dans un canvas offscreen, agrandie x3, puis applique
+ * niveaux de gris + normalisation du contraste (etirement min/max). MEME
+ * pretraitement que le banc headless -> meme qualite de lecture. Sans lui, les
+ * petits nombres et les pseudos sont nettement moins bien lus.
+ */
 function cropCell(
   source: CanvasImageSource,
   rect: { x: number; y: number; width: number; height: number }
@@ -71,17 +76,24 @@ function cropCell(
   c.height = Math.max(1, Math.round(rect.height * scale));
   const ctx = c.getContext("2d")!;
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(
-    source,
-    rect.x,
-    rect.y,
-    rect.width,
-    rect.height,
-    0,
-    0,
-    c.width,
-    c.height
-  );
+  ctx.drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, c.width, c.height);
+
+  const img = ctx.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  let min = 255;
+  let max = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const y = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+    d[i] = d[i + 1] = d[i + 2] = y;
+    if (y < min) min = y;
+    if (y > max) max = y;
+  }
+  const range = max - min || 1;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = ((d[i] - min) / range) * 255;
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  ctx.putImageData(img, 0, 0);
   return c;
 }
 

@@ -51,7 +51,7 @@ export interface GameTemplate {
 // Colonnes RELATIVES a la boite detectee (= etendue de la barre d'en-tete).
 // Valeurs validees sur les 4 vraies captures (classees 5v5 + tournoi 4v4).
 export const SND_COLUMNS: Column[] = [
-  { field: "pseudo", type: "text", x: 0.15, width: 0.24 },
+  { field: "pseudo", type: "text", x: 0.16, width: 0.2 },
   { field: "score", type: "int", x: 0.42, width: 0.15 },
   { field: "ema", type: "ema", x: 0.58, width: 0.17 },
   // impact (>0.8) ignore : non utilise cote The Circle.
