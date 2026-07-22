@@ -63,10 +63,9 @@ export function parseInt0(raw: string): number | null {
 }
 
 /**
- * Decoupe une cellule dans un canvas offscreen, agrandie x3, puis applique
- * niveaux de gris + normalisation du contraste (etirement min/max). MEME
- * pretraitement que le banc headless -> meme qualite de lecture. Sans lui, les
- * petits nombres et les pseudos sont nettement moins bien lus.
+ * Decoupe une cellule, l'agrandit x3, puis niveaux de gris + normalisation min/max.
+ * Recette validee pour la lecture des K/D/A (donnee transmise). Meme pretraitement
+ * reproduit dans le banc headless (scripts/ocr-e2e.mjs) pour un banc fidele.
  */
 function cropCell(
   source: CanvasImageSource,

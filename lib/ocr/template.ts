@@ -25,6 +25,9 @@ export interface Column {
   /** x et largeur RELATIFS a la boite du tableau (0–1). */
   x: number;
   width: number;
+  /** hauteur RELATIVE a la ligne (0–1). Defaut 1. Le pseudo n'occupe que le HAUT
+   *  de la ligne (le bas contient l'etoile/embleme de clan a exclure). */
+  yHeight?: number;
 }
 
 export interface TableTemplate {
@@ -51,7 +54,9 @@ export interface GameTemplate {
 // Colonnes RELATIVES a la boite detectee (= etendue de la barre d'en-tete).
 // Valeurs validees sur les 4 vraies captures (classees 5v5 + tournoi 4v4).
 export const SND_COLUMNS: Column[] = [
-  { field: "pseudo", type: "text", x: 0.16, width: 0.2 },
+  // yHeight 0.55 : ne lit que le haut de la ligne (le pseudo), pas l'etoile de
+  // clan / l'embleme du bas -> supprime les caracteres parasites (@400, ®, ...).
+  { field: "pseudo", type: "text", x: 0.16, width: 0.2, yHeight: 0.55 },
   // score resserre pour exclure le bouton "..." a droite du nombre (sinon les
   // petits nombres, ex. "0", se lisent mal). Non transmis a The Circle : sert a
   // l'affichage et a la verif de coherence (scores decroissants).
@@ -89,7 +94,7 @@ export const CODM_SND: GameTemplate = {
 export function cellRect(
   table: TableTemplate,
   rowIndex: number,
-  col: { x: number; width: number },
+  col: { x: number; width: number; yHeight?: number },
   imgW: number,
   imgH: number
 ): { x: number; y: number; width: number; height: number } {
@@ -100,11 +105,12 @@ export function cellRect(
 
   const rowTop = boxY + (table.rows.top + rowIndex * table.rows.height) * boxH;
   const rowH = table.rows.height * boxH;
+  const yHeight = col.yHeight ?? 1;
 
   return {
     x: boxX + col.x * boxW,
     y: rowTop,
     width: col.width * boxW,
-    height: rowH,
+    height: rowH * yHeight,
   };
 }

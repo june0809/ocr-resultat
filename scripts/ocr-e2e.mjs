@@ -10,10 +10,31 @@ const BASE = "http://localhost:3000";
 const KEY = "sk_d39H3u5uTxBs1OGrxxRCio7W3capk9Zn";
 
 const COLUMNS = [
-  { field: "pseudo", type: "text", x: 0.16, width: 0.2 },
+  { field: "pseudo", type: "text", x: 0.16, width: 0.2, yHeight: 0.55 },
   { field: "score", type: "int", x: 0.4, width: 0.11 },
   { field: "ema", type: "ema", x: 0.58, width: 0.17 },
 ];
+
+// Reproduit le pretraitement navigateur (cropCell) : agrandissement couleur x3 ->
+// gris -> normalisation min/max. -> le banc reflete le navigateur.
+async function prepCell(file, rect) {
+  const { data, info } = await sharp(file)
+    .extract(rect)
+    .resize({ width: rect.width * 3, height: rect.height * 3, fit: "fill" })
+    .raw().toBuffer({ resolveWithObject: true });
+  const n = info.width * info.height;
+  const g = new Float64Array(n);
+  let mn = 255, mx = 0;
+  for (let k = 0; k < n; k++) {
+    const i = k * info.channels;
+    const v = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    g[k] = v; if (v < mn) mn = v; if (v > mx) mx = v;
+  }
+  const range = mx - mn || 1;
+  const out = Buffer.alloc(n);
+  for (let k = 0; k < n; k++) out[k] = Math.round(((g[k] - mn) / range) * 255);
+  return sharp(out, { raw: { width: info.width, height: info.height, channels: 1 } }).png().toBuffer();
+}
 const MVP_BADGE = { x: 0.33, width: 0.12 };
 const WL = { text: "", int: "0123456789", ema: "0123456789/" };
 
@@ -82,8 +103,8 @@ async function ocrTeam(worker, file, det, box, size) {
   for (let r = 0; r < size; r++) {
     const top = box.y + r * rowH, by = {};
     for (const col of COLUMNS) {
-      const rect = { left: Math.round(box.x + col.x * box.w), top: Math.round(top), width: Math.round(col.width * box.w), height: Math.round(rowH) };
-      const buf = await sharp(file).extract(rect).grayscale().resize({ width: rect.width * 3, height: rect.height * 3, fit: "fill" }).normalize().toBuffer();
+      const rect = { left: Math.round(box.x + col.x * box.w), top: Math.round(top), width: Math.round(col.width * box.w), height: Math.round(rowH * (col.yHeight ?? 1)) };
+      const buf = await prepCell(file, rect);
       await worker.setParameters({ tessedit_char_whitelist: WL[col.type] });
       const { data: d } = await worker.recognize(buf);
       by[col.field] = { text: d.text.trim().replace(/\s+/g, col.type === "text" ? " " : ""), conf: d.confidence / 100 };

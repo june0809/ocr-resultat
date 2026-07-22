@@ -258,12 +258,13 @@ export default function UploadPage() {
           <p style={S.hint}>
             <b>Double vérification</b> : chaque ligne montre <b>la vraie bande
             d&apos;image</b> juste au-dessus du texte lu — comparez d&apos;un coup
-            d&apos;œil. Les <b>chiffres</b> (K/D/A) sont fiables ; les <b>pseudos</b>
-            sont souvent mal lus (avatars/badges) : vérifiez-les tous. C&apos;est le
-            texte <b>corrigé</b> qui part vers The Circle, pas le brut de l&apos;OCR.
-            Cases <span style={{ background: "#fff3cd" }}>jaunes</span> = basse
-            confiance ; <span style={{ background: "#f8d7da" }}>rouges</span> = score
-            incohérent (supérieur à la ligne du dessus).
+            d&apos;œil. Les <b>K/D/A</b> sont fiables (~99 %) ; les <b>pseudos</b> et
+            les petits <b>scores</b> sont parfois mal lus : vérifiez-les avec
+            l&apos;image. C&apos;est le texte <b>corrigé</b> qui part vers The Circle,
+            pas le brut de l&apos;OCR. Cases
+            <span style={{ background: "#fff3cd" }}>jaunes</span> = basse confiance ;
+            <span style={{ background: "#f8d7da" }}>rouges</span> = score incohérent
+            (supérieur à la ligne du dessus, donc à re-vérifier).
           </p>
           <TeamTable title="Équipe bleue (gauche)" rows={blue} setRows={setBlue} />
           <TeamTable title="Équipe rouge (droite)" rows={red} setRows={setRed} />
