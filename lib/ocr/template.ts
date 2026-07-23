@@ -30,12 +30,23 @@ export interface Column {
   yHeight?: number;
 }
 
+/** Une bande de ligne (1 joueur), RELATIVE a la boite du tableau (0–1). Produite
+ *  par l'ancrage par projection (lib/ocr/server/anchor.ts, §4.2.3). */
+export interface RowBand {
+  top: number;
+  height: number;
+}
+
 export interface TableTemplate {
   side: "blue" | "red";
   /** Boite du tableau, RELATIVE a l'image entiere (0–1). Ajustee par l'alignement. */
   box: { x: number; y: number; width: number; height: number };
-  /** Lignes, RELATIVES a la boite : 1re ligne a `top`, chacune de hauteur `height`. */
-  rows: { top: number; height: number; count: number };
+  /**
+   * Lignes RELATIVES a la boite. Modele par defaut : decoupage EGAL (`top`,
+   * `height`, `count`). Si `bands` est fourni (ancrage par projection), il PRIME :
+   * chaque ligne prend sa bande calee sur le texte reel (chemin image serveur).
+   */
+  rows: { top: number; height: number; count: number; bands?: RowBand[] };
   columns: Column[];
 }
 
@@ -78,6 +89,33 @@ export function codmSndTables(
   ];
 }
 
+/**
+ * Variante ANCREE (chemin image serveur) : chaque tableau porte ses PROPRES
+ * bandes (ancrage par projection), donc son propre nombre de lignes — deduit de
+ * la capture, pas choisi a la main. Remplace le decoupage egal + la grille v1.
+ */
+export function codmSndTablesAnchored(
+  blue: { box: TableTemplate["box"]; bands: RowBand[] },
+  red: { box: TableTemplate["box"]; bands: RowBand[] }
+): TableTemplate[] {
+  const mk = (
+    side: "blue" | "red",
+    box: TableTemplate["box"],
+    bands: RowBand[]
+  ): TableTemplate => ({
+    side,
+    box,
+    rows: {
+      top: 0,
+      height: bands.length ? 1 / bands.length : 1,
+      count: bands.length,
+      bands,
+    },
+    columns: SND_COLUMNS,
+  });
+  return [mk("blue", blue.box, blue.bands), mk("red", red.box, red.bands)];
+}
+
 /** Template par defaut (boites approximatives ; en pratique l'auto-detection
  *  remplace les boites au chargement de l'image). count par defaut = 4. */
 export const CODM_SND: GameTemplate = {
@@ -103,8 +141,13 @@ export function cellRect(
   const boxW = table.box.width * imgW;
   const boxH = table.box.height * imgH;
 
-  const rowTop = boxY + (table.rows.top + rowIndex * table.rows.height) * boxH;
-  const rowH = table.rows.height * boxH;
+  // Ancrage par projection (bande calee sur le texte) s'il existe, sinon
+  // decoupage egal (modele par defaut / chemin navigateur).
+  const band = table.rows.bands?.[rowIndex];
+  const relTop = band ? band.top : table.rows.top + rowIndex * table.rows.height;
+  const relH = band ? band.height : table.rows.height;
+  const rowTop = boxY + relTop * boxH;
+  const rowH = relH * boxH;
   const yHeight = col.yHeight ?? 1;
 
   return {

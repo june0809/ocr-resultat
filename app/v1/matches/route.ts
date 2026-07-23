@@ -5,7 +5,8 @@ import { corsHeaders } from "@/lib/cors";
 import { errorResponse } from "@/lib/errors";
 import { check as rateLimit } from "@/lib/ratelimit";
 import { buildResponse } from "@/lib/response";
-import { MatchBody } from "@/lib/schema";
+import { ocrImage } from "@/lib/ocr/server/ingest";
+import { MatchBody, type MatchResponse } from "@/lib/schema";
 
 /**
  * POST /v1/matches — point d'entree unique. SPEC §6.
@@ -14,13 +15,16 @@ import { MatchBody } from "@/lib/schema";
  *   1. Auth par cle (§8)              -> 401 invalid_api_key
  *   2. Rate limit par tenant (§8)     -> 429 rate_limited (+ Retry-After)
  *   3. JSON + validation de schema    -> 400 invalid_body
- *   4. Chemin image (source=discord)  -> 501 ocr_not_available (Lot 4)
+ *   4. Chemin image (source=the_circle) -> ocr_not_available tant que le moteur Lot A n'est pas cable
  *   5. Confiance globale trop basse   -> 422 unreadable_scoreboard
  *   6. Construction de la reponse §6.2 -> 200
  *
  * On execute en runtime Node (node:crypto pour l'auth et les UUID).
  */
 export const runtime = "nodejs";
+// L'OCR serveur (tesseract.js + sharp) prend quelques secondes ; Hobby autorise
+// jusqu'a 60 s via maxDuration -> on prend de la marge (nominal ~1 s/board).
+export const maxDuration = 60;
 
 function num(name: string, fallback: number): number {
   const v = Number(process.env[name]);
@@ -75,20 +79,47 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return withHeaders(errorResponse("invalid_body", detail), cors);
     }
 
-    // 4. Chemin image : OCR serveur pas encore disponible (Lot 4) ----------
-    if (body.source === "discord") {
-      return withHeaders(
-        errorResponse(
-          "ocr_not_available",
-          "L'OCR cote serveur (chemin image) arrive en Lot 4. En Lot 1, envoyez le JSON deja extrait (source=web)."
-        ),
-        cors
-      );
+    // 4. Construction de la reponse selon le chemin -----------------------
+    let response: MatchResponse;
+    let globalConfidence: number;
+
+    if (body.source === "the_circle") {
+      // Chemin image (nominal v2) : OCR serveur complet (detect -> anchor ->
+      // template -> Tesseract). On lit l'image, on rend le JSON, on la jette.
+      const image = Buffer.from(body.image_base64, "base64");
+      const maxBytes = num("IMAGE_MAX_BYTES", 8 * 1024 * 1024);
+      if (image.length === 0) {
+        return withHeaders(
+          errorResponse("invalid_body", "image_base64 vide ou invalide."),
+          cors
+        );
+      }
+      if (image.length > maxBytes) {
+        return withHeaders(
+          errorResponse(
+            "invalid_body",
+            `Image trop lourde (> ${Math.round(maxBytes / 1024 / 1024)} Mo).`
+          ),
+          cors
+        );
+      }
+      const result = await ocrImage(image, {
+        game: body.game,
+        screen: body.screen,
+      });
+      if (!result.ok) {
+        return withHeaders(errorResponse(result.code, result.detail), cors);
+      }
+      response = result.response;
+      globalConfidence = result.globalConfidence;
+    } else {
+      // Chemin "JSON deja extrait" (compat / tests, §5.1).
+      const built = buildResponse(body);
+      response = built.response;
+      globalConfidence = built.globalConfidence;
     }
 
-    // 5. Construction de la reponse + seuil exploitable --------------------
-    const { response, globalConfidence } = buildResponse(body);
-
+    // 5. Seuil exploitable (partage) --------------------------------------
     // Seuil bas volontairement : le flux nominal passe TOUJOURS par la validation
     // humaine (§9). Le 422 ne doit rejeter qu'un scoreboard vraiment illisible, pas
     // un match aux chiffres bons mais pseudos stylises (basse confiance attendue).

@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Le service est un valideur d'API. CORS de la page d'upload : voir §8 du SPEC.
-  // La whitelist du domaine d'upload est appliquee dans le handler (lib/cors.ts)
-  // plutot qu'ici, pour rester dependante de l'env (dev vs prod).
   reactStrictMode: true,
+  // Vercel : la fonction serverless de /v1/matches doit embarquer la traineddata
+  // VENDOREE (@tesseract.js-data/eng) + le core WASM de tesseract.js, sinon l'OCR
+  // tente de les telecharger au runtime (impossible : FS read-only + pas de CDN).
+  outputFileTracingIncludes: {
+    "/v1/matches": [
+      "./node_modules/@tesseract.js-data/eng/4.0.0_best_int/**",
+      "./node_modules/tesseract.js-core/**",
+    ],
+  },
 };
 
 export default nextConfig;

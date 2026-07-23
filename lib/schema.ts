@@ -13,8 +13,17 @@ import { z } from "zod";
 export const Mode = z.enum(["battle_royale", "team_deathmatch", "free_for_all"]);
 export type Mode = z.infer<typeof Mode>;
 
-export const Source = z.enum(["web", "discord"]);
+// Qui appelle le service. En v2 le chemin NOMINAL est `the_circle` + image (OCR
+// serveur). `web` = chemin "JSON deja extrait", conserve pour les tests / la
+// compat (§5.1). `discord` (v1) est supprime.
+export const Source = z.enum(["the_circle", "web"]);
 export type Source = z.infer<typeof Source>;
+
+// Gabarit d'ecran CODM (§4.2). Optionnel en entree : si absent, le service tente
+// de reconnaitre le gabarit, sinon 422 unreadable_scoreboard. Determine aussi le
+// `mode` en sortie (codm_br -> battle_royale, codm_mp -> team_deathmatch).
+export const Screen = z.enum(["codm_br", "codm_mp"]);
+export type Screen = z.infer<typeof Screen>;
 
 // --- Entree : cas navigateur (OCR deja fait cote client), §6.1 --------------
 
@@ -132,14 +141,17 @@ function refineWeb(body: z.infer<typeof WebMatchBody>, ctx: z.RefinementCtx) {
   }
 }
 
-// --- Entree : cas image (OCR cote serveur), §6.1 ----------------------------
-// Non implemente en Lot 1 (aucun OCR). On valide quand meme la forme pour
-// rendre une erreur propre et stable.
+// --- Entree : cas image (OCR cote serveur, chemin NOMINAL v2), §5.1 ----------
+// The Circle envoie l'image ; l'OCR (template auto-ancre + Tesseract par cellule)
+// est fait cote serveur (Lot A). La forme est FIGEE ici : c'est le contrat (§5)
+// contre lequel The Circle integre en parallele.
 
-export const ImageMatchBody = z.object({
-  source: z.literal("discord"),
+export const TheCircleImageMatchBody = z.object({
+  source: z.literal("the_circle"),
   game: z.string().min(1).max(64),
-  mode: Mode.optional(),
+  // screen optionnel : reconnaissance auto du gabarit si absent (§5.1).
+  screen: Screen.optional(),
+  // png/jpg en base64 SANS en-tete data:. Taille max / MIME verifies au cablage.
   image_base64: z.string().min(1),
 });
 
@@ -149,16 +161,38 @@ export const ImageMatchBody = z.object({
  * (contrairement au refine sur un membre de discriminatedUnion).
  */
 export const MatchBody = z
-  .discriminatedUnion("source", [WebMatchBody, ImageMatchBody])
+  .discriminatedUnion("source", [WebMatchBody, TheCircleImageMatchBody])
   .superRefine((body, ctx) => {
     if (body.source === "web") refineWeb(body, ctx);
   });
 
 export type WebMatchBody = z.infer<typeof WebMatchBody>;
-export type ImageMatchBody = z.infer<typeof ImageMatchBody>;
+export type TheCircleImageMatchBody = z.infer<typeof TheCircleImageMatchBody>;
 
 // --- Sortie : §6.2 ----------------------------------------------------------
 // Types uniquement (la reponse est construite dans lib/response.ts).
+
+/**
+ * Confiance + source d'UNE cellule lue par l'OCR image (§5.2). `source: "vision"`
+ * n'apparait qu'avec le repli vision (Lot B, ETEINT en Lot A -> tout "tesseract").
+ * C'est ce detail qui permet a The Circle de surligner cellule par cellule.
+ */
+export type CellSource = "tesseract" | "vision";
+
+export interface CellField {
+  value: string | number;
+  confidence: number;
+  source: CellSource;
+}
+
+/** Detail par cellule d'un joueur (chemin image). Absent sur le chemin web/compat. */
+export interface PlayerFields {
+  pseudo?: CellField;
+  kills?: CellField;
+  deaths?: CellField;
+  assists?: CellField;
+  placement?: CellField;
+}
 
 export interface PlayerOut {
   pseudo: string;
@@ -167,7 +201,10 @@ export interface PlayerOut {
   assists?: number;
   placement?: number;
   is_mvp?: boolean;
+  // confiance agregee du joueur = min des cellules du joueur (§4.5).
   confidence: number;
+  // detail par cellule (confiance + source). Chemin image uniquement.
+  fields?: PlayerFields;
 }
 
 export interface TeamOut {
@@ -182,13 +219,24 @@ export interface Warning {
   detail: string;
 }
 
+/** Observabilite : combien de cellules ont ete lues par Tesseract vs le repli
+ *  vision (suivi du budget). Chemin image uniquement (§5.2). */
+export interface Engine {
+  tesseract_cells: number;
+  vision_cells: number;
+}
+
 export interface MatchResponse {
   match_id: string;
   game: string;
   mode: Mode;
+  // gabarit d'ecran reconnu (chemin image). Absent sur le chemin web/compat.
+  screen?: Screen;
   captured_at: string;
   source: Source;
   confidence: number;
+  // compteurs moteur (chemin image). Absent sur le chemin web/compat.
+  engine?: Engine;
   teams: TeamOut[];
   warnings: Warning[];
 }
