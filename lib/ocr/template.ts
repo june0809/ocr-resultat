@@ -1,4 +1,7 @@
-import type { Mode } from "@/lib/schema";
+/** Mode de partie. Redefini ici plutot qu'importe de lib/schema : le moteur est
+ *  consomme comme une bibliotheque par d'autres applications (The Circle), et
+ *  ne doit donc dependre ni de zod ni des alias "@/" de cette appli Next. */
+export type Mode = "battle_royale" | "team_deathmatch" | "free_for_all";
 
 /**
  * Template de jeu — decrit OU se trouve chaque colonne, en coordonnees RELATIVES

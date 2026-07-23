@@ -1,35 +1,24 @@
-import sharp from "sharp";
+import type { ImageSource, RelBox } from "./source";
 
 /**
  * Detection auto des tableaux CODM (equipe bleue a gauche, rouge a droite) via
- * les barres d'en-tete de couleur — port SERVEUR de lib/ocr/detect.ts, qui
- * tournait sur un canvas navigateur (§4.2). Ici on lit les pixels bruts via
- * sharp : aucun DOM, tourne dans la fonction Node de POST /v1/matches.
+ * les barres d'en-tete de couleur.
  *
- * Cle de robustesse : on ne fige pas de coordonnees relatives (elles ne
- * transferent pas d'une resolution / d'un ratio a l'autre) — la detection
- * s'adapte a chaque capture. Le decoupage fin des LIGNES (par joueur) se fait
- * ensuite par profil de projection (§4.2, etape suivante).
+ * Cle de robustesse : on ne fige AUCUNE coordonnee relative (elles ne
+ * transferent pas d'une resolution ni d'un ratio a l'autre — un iPad et un
+ * telephone n'ont pas la meme mise en page). La detection s'adapte a chaque
+ * capture en cherchant deux aplats de couleur franche.
  *
- * Ce module n'importe volontairement AUCUN alias `@/…` (uniquement `sharp`) pour
- * rester executable tel quel par un banc headless.
+ * Partage Node/navigateur : ne touche aux pixels qu'a travers ImageSource.
  */
 
-export interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** Boites d'un tableau : la zone des joueurs + la barre d'en-tete au-dessus.
+/** Boites d'un tableau : zone des joueurs + barre d'en-tete au-dessus.
  *  L'en-tete porte les libelles de colonnes ("JOUEUR / SCORE / É/M/A / IMPACT"),
- *  ecrits dans une police d'INTERFACE nette sur un aplat de couleur — bien plus
- *  lisibles que les pseudos stylises. C'est le meilleur ancrage de colonnes
- *  disponible (cf. columns.ts). */
+ *  ecrits dans une police d'INTERFACE nette sur un aplat uni : c'est le meilleur
+ *  ancrage de colonnes disponible (cf. core/columns.ts). */
 export interface TableBoxes {
-  body: Box;
-  header: Box;
+  body: RelBox;
+  header: RelBox;
 }
 
 const isBlue = (r: number, g: number, b: number) =>
@@ -38,23 +27,15 @@ const isRed = (r: number, g: number, b: number) =>
   r > 110 && r - b > 30 && r - g > 30 && b < 130;
 
 /**
- * Detecte les deux boites de tableau (relatives 0–1). Retourne null si l'en-tete
- * bleu/rouge n'est pas trouve (capture non reconnue -> filet vision en Lot B).
+ * Renvoie les deux tableaux, ou null si l'en-tete bleu/rouge est introuvable
+ * (capture non reconnue -> l'appelant remonte une erreur exploitable).
  */
 export async function autoDetectTables(
-  image: Buffer
+  src: ImageSource
 ): Promise<{ blue: TableBoxes; red: TableBoxes } | null> {
-  // ensureAlpha() force 4 canaux (RGBA) : on retrouve exactement le stride du
-  // canvas navigateur -> l'indexation des pixels est identique au code d'origine.
-  const { data, info } = await sharp(image)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  const imgW = info.width;
-  const imgH = info.height;
+  const { data, width: imgW, height: imgH, channels } = await src.rgba();
   const at = (x: number, y: number): [number, number, number] => {
-    const i = (y * imgW + x) * 4;
+    const i = (y * imgW + x) * channels;
     return [data[i], data[i + 1], data[i + 2]];
   };
 
@@ -91,6 +72,7 @@ export async function autoDetectTables(
       rxMax = Math.max(rxMax, x);
     }
   }
+  if (bxMax <= bxMin || rxMax <= rxMin) return null;
 
   // 3) bas du tableau : derniere bande avec du contenu clair avant le trou du footer
   const bright = (x: number, y: number) => {
@@ -120,7 +102,6 @@ export async function autoDetectTables(
       width: (xMax - xMin) / imgW,
       height: (bottom - top) / imgH,
     },
-    // Barre d'en-tete : meme etendue en X, la bande de couleur en Y.
     header: {
       x: xMin / imgW,
       y: hTop / imgH,

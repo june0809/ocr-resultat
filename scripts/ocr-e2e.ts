@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { ocrImage } from "@/lib/ocr/server/ingest";
+import { ocrImage } from "../lib/ocr/server/ingest";
 
 /**
  * Banc e2e SERVEUR (§9, Lot A) : appelle directement le pipeline image

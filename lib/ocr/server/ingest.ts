@@ -1,9 +1,5 @@
 import { randomUUID } from "node:crypto";
-import sharp, { type Metadata } from "sharp";
-import { autoDetectTables } from "./detect";
-import { anchorRows } from "./anchor";
-import { runOcr, type OcrResult } from "./pipeline";
-import { codmSndTablesAnchored, type GameTemplate } from "../template";
+import { readScoreboardFromBuffer, type OcrResult } from "../server";
 import type {
   CellField,
   MatchResponse,
@@ -43,44 +39,24 @@ export async function ocrImage(
   image: Buffer,
   { game, screen }: { game: string; screen?: Screen }
 ): Promise<OcrImageResult> {
-  let meta: Metadata;
-  try {
-    meta = await sharp(image).metadata();
-  } catch {
-    return unreadable("image non decodable");
-  }
-  const imgW = meta.width ?? 0;
-  const imgH = meta.height ?? 0;
-  if (imgW < 2 || imgH < 2) return unreadable("dimensions image invalides");
-
-  // Le Lot A ne sait lire QUE la mise en page S&D (2 tableaux, barres d'en-tete
-  // bleue/rouge). Une liste de placement battle royale n'a pas ces reperes :
-  // autoDetectTables echouerait avec un "barres non detectees" trompeur, qui
-  // ferait chercher un probleme de capture au lieu d'une capacite absente.
+  // Le chemin image ne sait lire QUE la mise en page S&D (2 tableaux, barres
+  // d'en-tete bleue/rouge). Une liste de placement battle royale n'a pas ces
+  // reperes : la detection echouerait avec un "barres non detectees" trompeur,
+  // qui ferait chercher un probleme de capture au lieu d'une capacite absente.
   if (screen === "codm_br") {
     return unreadable(
-      "ecran battle royale non supporte (Lot A lit uniquement les scoreboards d'equipe CODM)"
+      "ecran battle royale non supporte (lecture d'image limitee aux scoreboards d'equipe CODM)"
     );
   }
 
-  const boxes = await autoDetectTables(image);
-  if (!boxes) return unreadable("tableaux (barres bleu/rouge) non detectes");
-
-  // Ancrage des lignes par projection, independamment pour chaque equipe.
-  const blueBands = await anchorRows(image, boxes.blue.body, imgW, imgH);
-  const redBands = await anchorRows(image, boxes.red.body, imgW, imgH);
-  if (!blueBands || !redBands) return unreadable("lignes de joueurs non ancrees");
-
-  const template: GameTemplate = {
+  const read = await readScoreboardFromBuffer(image, {
     game,
     mode: screenToMode(screen),
-    tables: codmSndTablesAnchored(
-      { box: boxes.blue.body, header: boxes.blue.header, bands: blueBands },
-      { box: boxes.red.body, header: boxes.red.header, bands: redBands }
-    ),
-  };
-  const ocr = await runOcr(image, imgW, imgH, template);
-  const { response, globalConfidence } = buildImageResponse(ocr, { game, screen });
+    onDebug: process.env.OCR_DEBUG ? (m) => console.log(m) : undefined,
+  });
+  if (!read.ok) return unreadable(read.reason);
+
+  const { response, globalConfidence } = buildImageResponse(read.result, { game, screen });
   return { ok: true, response, globalConfidence };
 }
 

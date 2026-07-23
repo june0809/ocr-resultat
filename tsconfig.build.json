@@ -1,0 +1,31 @@
+{
+  "//": [
+    "Compilation du MOTEUR seul, pour qu'il soit consommable comme bibliotheque",
+    "par d'autres applications (The Circle) via une dependance git.",
+    "",
+    "lib/ocr/server/ est exclu : c'est du code d'APPLICATION (il utilise l'alias",
+    "@/ et les types zod de ce projet), pas du moteur. Le moteur, lui, n'a",
+    "aucune dependance a Next.js ni aux alias de ce repo — c'est ce qui le rend",
+    "reutilisable ailleurs.",
+    "",
+    "Emis en CommonJS : universellement consommable par webpack/Next cote client",
+    "comme par Node, sans imposer \"type\": \"module\" au reste du repo."
+  ],
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "lib/ocr",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["lib/ocr/**/*.ts"],
+  "exclude": ["lib/ocr/server/**"]
+}

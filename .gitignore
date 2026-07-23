@@ -34,3 +34,6 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 Thumbs.db
+
+# build du moteur (regenere par "prepare" a l installation)
+/dist

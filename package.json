@@ -1,8 +1,8 @@
 {
   "name": "ocr-resultat",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Service d'ingestion de resultats de match par capture d'ecran — valideur d'API (Lot 1).",
+  "description": "Ingestion de resultats de match par capture d'ecran : service de validation + moteur OCR reutilisable (navigateur et Node).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,23 +10,62 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "keygen": "node scripts/keygen.mjs",
-    "e2e": "tsx scripts/ocr-e2e.ts"
+    "e2e": "tsx scripts/ocr-e2e.ts",
+    "build:engine": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json"
   },
+  "//exports": [
+    "Le moteur est expose comme BIBLIOTHEQUE : une application tierce (The Circle)",
+    "le declare en dependance git et importe 'ocr-resultat/browser'. Le code reste",
+    "ici — une seule source de verite, pas de recopie a maintenir des deux cotes.",
+    "",
+    "npm execute 'prepare' automatiquement lors d'une installation depuis git : le",
+    "consommateur recoit du JS compile + les types, sans avoir a connaitre la",
+    "configuration TypeScript de ce repo."
+  ],
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./template": {
+      "types": "./dist/template.d.ts",
+      "default": "./dist/template.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "//dependencies": [
+    "Ne garder ici QUE ce dont le moteur a besoin pour tourner. next/react/zod sont",
+    "passes en devDependencies : npm n'installe JAMAIS les devDependencies d'une",
+    "dependance, donc une application qui consomme ce paquet ne tire ni Next.js ni",
+    "React. C'est ce qui rend l'usage en bibliotheque viable sans repo separe.",
+    "",
+    "@tesseract.js-data/eng reste une vraie dependance : le consommateur y prend la",
+    "traineddata a servir depuis son propre domaine, plutot que de committer un",
+    "binaire de 15 Mo dans son repo ou de dependre d'un CDN."
+  ],
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",
-    "next": "^16.2.10",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
     "sharp": "^0.35.3",
-    "tesseract.js": "^5.1.1",
-    "zod": "3.23.8"
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "@types/node": "20.14.10",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "tsx": "^4.23.1",
-    "typescript": "5.5.3"
+    "typescript": "5.5.3",
+    "zod": "3.23.8"
   },
   "overrides": {
     "postcss": ">=8.5.10"

@@ -1,9 +1,9 @@
-import sharp from "sharp";
 import { PSM, type Worker } from "tesseract.js";
-import type { Column, RowBand, TableTemplate } from "../template";
+import { absRect, type ImageSource, type RelBox } from "./source";
+import type { Column, RowBand } from "../template";
 
 /**
- * DETECTION AUTOMATIQUE DES COLONNES (§4.2).
+ * DETECTION AUTOMATIQUE DES COLONNES.
  *
  * Pourquoi ce module existe : des fractions de colonnes figees ne transferent
  * PAS d'un appareil a l'autre. Mesure sur les vraies captures :
@@ -12,20 +12,22 @@ import type { Column, RowBand, TableTemplate } from "../template";
  *   iPad      23.6–37 %     50–57 %      65–73.5 %   (2420x1668, ratio 1.45)
  *   telephone 18.6–26 %     44.9–49.5 %  61.8–68.5 % (1600x720,  ratio 2.22)
  *
- * CODM ne se contente pas de redimensionner : il REFOND sa mise en page selon le
- * ratio de l'ecran. Toute constante calibree sur un appareil casse sur l'autre.
+ * CODM ne se contente pas de redimensionner : il REFOND sa mise en page selon
+ * le ratio de l'ecran. Toute constante calibree sur un appareil casse sur
+ * l'autre.
  *
- * Strategie : on identifie les colonnes par leur CONTENU, pas par leur position.
- *   Passe A — le K/D/A porte une signature qu'aucun autre element ne peut imiter
- *             ("15/5/0"). On le cherche a la whitelist chiffres+slash, sur la
- *             MOITIE DROITE seulement (l'avatar ne peut donc pas polluer). Le
- *             SCORE est le nombre immediatement a sa gauche.
- *   Passe B — le PSEUDO se cherche dans une fenetre calee sur le score. L'ecart
- *             pseudo->score est stable d'un appareil a l'autre (~26 % de la
- *             largeur du tableau), contrairement aux positions absolues.
- *
- * On prend la MEDIANE sur plusieurs lignes echantillons : une ligne au pseudo
- * illisible ou au badge MVP ne fausse donc pas la colonne.
+ * Strategie : on identifie les colonnes par leur CONTENU, pas leur position.
+ *   Ancrage 1 (principal) — les LIBELLES DE L'EN-TETE. Amorcer la geometrie sur
+ *     l'OCR des lignes de joueurs serait circulaire : ce sont justement les
+ *     pseudos stylises que Tesseract lit mal. L'en-tete, lui, est ecrit dans la
+ *     police d'interface, en majuscules, sur un aplat uni : la zone la plus
+ *     lisible de toute la capture, et elle definit les colonnes par construction.
+ *   Ancrage 2 (repli) — la signature "15/5/0" du K/D/A, qu'aucun autre element
+ *     du scoreboard ne peut imiter. Cherchee a la whitelist chiffres+slash sur
+ *     la moitie droite, ou l'avatar ne peut pas polluer.
+ *   Pseudo — fenetre calee sur le score (l'ECART est stable d'un appareil a
+ *     l'autre, contrairement aux positions absolues), puis affinee par OCR sur
+ *     le premier groupe de mots contigus.
  */
 
 export interface DetectedColumns {
@@ -42,20 +44,19 @@ interface Word {
   confidence: number;
 }
 
-/** Lignes echantillonnees pour le reperage (compromis cout/robustesse). */
+/** Lignes echantillonnees pour le reperage du pseudo (compromis cout/robustesse). */
 const SAMPLE_ROWS = 2;
 /** Marge ajoutee autour des bornes detectees, en fraction de la boite. */
 const PAD = 0.012;
-/** La passe "chiffres" ne regarde que la droite du tableau : au-dela de cette
- *  fraction, plus d'avatar ni de pseudo, donc aucune source de confusion. */
+/** La passe "chiffres" ne regarde que la droite du tableau : au-dela, plus
+ *  d'avatar ni de pseudo, donc aucune source de confusion. */
 const NUMERIC_ZONE_START = 0.3;
-/** Fenetre de recherche du pseudo, en ecart RELATIF au CENTRE du score.
- *  Mesure : le pseudo commence a centre-29.9 % (iPad) / centre-28.6 % (telephone),
- *  alors que sa position ABSOLUE varie de 5 points entre les deux. C'est cet
- *  ecart, et non la position, qui transfere d'un appareil a l'autre. */
+/** Fenetre de recherche du pseudo, en ecart au CENTRE du score. Mesure : le
+ *  pseudo commence a centre-29.9 % (iPad) / centre-28.6 % (telephone), alors
+ *  que sa position ABSOLUE varie de 5 points entre les deux. */
 const PSEUDO_SEARCH_FROM = 0.31;
 const PSEUDO_SEARCH_TO = 0.14;
-/** Fenetre de repli si l'OCR ne repere aucun pseudo : plus etroite, pour ne pas
+/** Repli si l'OCR ne repere aucun pseudo : fenetre plus etroite, pour ne pas
  *  avaler l'icone "ajouter en ami" qui suit le pseudo. */
 const PSEUDO_FALLBACK_FROM = 0.3;
 const PSEUDO_FALLBACK_TO = 0.17;
@@ -65,6 +66,8 @@ const EMA_HALF = 0.07;
 const SCORE_HALF = 0.05;
 /** Deux mots separes de moins que ca appartiennent au meme pseudo. */
 const WORD_GAP = 0.03;
+/** Agrandissement des extraits de reperage. */
+const SCAN_SCALE = 3;
 
 /** K/D/A : 3 nombres separes par "/". Tolere les confusions OCR du separateur. */
 const KDA_RE = /^(\d{1,3})[\/|lI1](\d{1,3})[\/|lI1](\d{1,3})$/;
@@ -73,75 +76,69 @@ const NUM_RE = /^\d{1,5}$/;
 const UI_TOKENS = new Set(["MVP", "VICTOIRE", "DEFAITE", "DÉFAITE", "VICTORY", "DEFEAT"]);
 
 /** Extrait les mots + boites, quelle que soit la forme de sortie de tesseract.js. */
-function wordsOf(data: unknown): Array<{ text: string; bbox: { x0: number; x1: number }; confidence: number }> {
+function wordsOf(
+  data: unknown
+): Array<{ text: string; bbox: { x0: number; x1: number }; confidence: number }> {
+  type W = { text: string; bbox: { x0: number; x1: number }; confidence: number };
   const d = data as {
-    words?: Array<{ text: string; bbox: { x0: number; x1: number }; confidence: number }>;
-    blocks?: Array<{
-      paragraphs?: Array<{
-        lines?: Array<{ words?: Array<{ text: string; bbox: { x0: number; x1: number }; confidence: number }> }>;
-      }>;
-    }>;
+    words?: W[];
+    blocks?: Array<{ paragraphs?: Array<{ lines?: Array<{ words?: W[] }> }> }>;
   };
   if (d.words?.length) return d.words;
-  const out: Array<{ text: string; bbox: { x0: number; x1: number }; confidence: number }> = [];
+  const out: W[] = [];
   for (const b of d.blocks ?? [])
     for (const p of b.paragraphs ?? [])
       for (const l of p.lines ?? []) for (const w of l.words ?? []) out.push(w);
   return out;
 }
 
-/**
- * OCR de reperage sur une portion [from,to] (fractions de la boite) d'une bande
- * de ligne. Rend les mots avec leurs bornes RAMENEES en fractions de la boite
- * entiere, pour que l'appelant raisonne dans un seul repere.
- */
-async function scanSpan(
+async function recognizeWords(
   worker: Worker,
-  image: Buffer,
-  box: TableTemplate["box"],
-  band: RowBand,
-  imgW: number,
-  imgH: number,
-  from: number,
-  to: number,
+  src: ImageSource,
+  rect: { x: number; y: number; width: number; height: number },
   whitelist: string
-): Promise<Word[]> {
-  const bx = Math.round(box.x * imgW);
-  const by = Math.round(box.y * imgH);
-  const bw = Math.min(Math.round(box.width * imgW), imgW - bx);
-  const bh = Math.round(box.height * imgH);
-
-  const left = Math.max(0, Math.min(bx + Math.round(from * bw), imgW - 2));
-  const width = Math.max(2, Math.min(Math.round((to - from) * bw), imgW - left));
-  // Haut de la bande : le texte y vit, l'embleme de clan est en bas.
-  const top = Math.max(0, Math.min(by + Math.round(band.top * bh), imgH - 2));
-  const height = Math.max(2, Math.min(Math.round(band.height * bh * 0.6), imgH - top));
-  const scale = 3;
-
-  const buf = await sharp(image)
-    .extract({ left, top, width, height })
-    .resize({ width: width * scale })
-    .grayscale()
-    .normalize()
-    .png()
-    .toBuffer();
-
+): Promise<Array<{ text: string; x0: number; x1: number; confidence: number }>> {
+  const img = await src.crop(rect, SCAN_SCALE);
   await worker.setParameters({
     tessedit_char_whitelist: whitelist,
     tessedit_pageseg_mode: PSM.SPARSE_TEXT, // elements disperses sur la ligne
   });
-  const { data } = await worker.recognize(buf, {}, { blocks: true, text: true });
-
-  const W = width * scale;
+  const { data } = await worker.recognize(img, {}, { blocks: true, text: true });
+  const W = Math.max(1, Math.round(rect.width * SCAN_SCALE));
   return wordsOf(data)
     .map((w) => ({
       text: (w.text ?? "").trim(),
-      // repere local -> repere boite
-      x0: from + (w.bbox.x0 / W) * (to - from),
-      x1: from + (w.bbox.x1 / W) * (to - from),
+      x0: w.bbox.x0 / W,
+      x1: w.bbox.x1 / W,
       confidence: (w.confidence ?? 0) / 100,
     }))
     .filter((w) => w.text.length > 0);
+}
+
+/** Reperage sur une portion [from,to] d'une bande de ligne. Les bornes sont
+ *  ramenees en fractions de la BOITE entiere, pour raisonner dans un seul repere. */
+async function scanSpan(
+  worker: Worker,
+  src: ImageSource,
+  box: RelBox,
+  band: RowBand,
+  from: number,
+  to: number,
+  whitelist: string
+): Promise<Word[]> {
+  const b = absRect(box, src.width, src.height);
+  const left = b.x + Math.round(from * b.width);
+  const width = Math.max(2, Math.round((to - from) * b.width));
+  // Haut de la bande : le texte y vit, l'embleme de clan est en bas.
+  const top = b.y + Math.round(band.top * b.height);
+  const height = Math.max(2, Math.round(band.height * b.height * 0.6));
+
+  const words = await recognizeWords(worker, src, { x: left, y: top, width, height }, whitelist);
+  return words.map((w) => ({
+    ...w,
+    x0: from + w.x0 * (to - from),
+    x1: from + w.x1 * (to - from),
+  }));
 }
 
 /** Mediane (robuste aux lignes aberrantes). */
@@ -151,50 +148,20 @@ function median(xs: number[]): number {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-/**
- * ANCRAGE PRINCIPAL — les libelles de la barre d'en-tete.
- *
- * Amorcer la geometrie sur l'OCR des lignes de joueurs est circulaire : ce sont
- * justement les pseudos stylises que Tesseract lit mal. L'en-tete, lui, est
- * ecrit dans la police d'INTERFACE du jeu, en majuscules, sur un aplat de
- * couleur uni : c'est la zone la plus lisible de toute la capture, et elle
- * definit les colonnes par construction.
- *
- * Renvoie les CENTRES (fractions de la boite) des colonnes reperees.
- */
+/** Centres (fractions de la boite) des colonnes reperees dans l'en-tete. */
 async function headerAnchors(
   worker: Worker,
-  image: Buffer,
-  header: TableTemplate["box"],
-  imgW: number,
-  imgH: number
+  src: ImageSource,
+  header: RelBox
 ): Promise<{ score?: number; ema?: number; impact?: number }> {
-  const hx = Math.max(0, Math.round(header.x * imgW));
-  const hy = Math.max(0, Math.round(header.y * imgH));
-  const hw = Math.max(2, Math.min(Math.round(header.width * imgW), imgW - hx));
-  const hh = Math.max(2, Math.min(Math.round(header.height * imgH), imgH - hy));
-  const scale = 3;
-
-  const buf = await sharp(image)
-    .extract({ left: hx, top: hy, width: hw, height: hh })
-    .resize({ width: hw * scale })
-    .grayscale()
-    .normalize()
-    .png()
-    .toBuffer();
-
-  await worker.setParameters({
-    tessedit_char_whitelist: "",
-    tessedit_pageseg_mode: PSM.SPARSE_TEXT,
-  });
-  const { data } = await worker.recognize(buf, {}, { blocks: true, text: true });
-  const W = hw * scale;
+  const h = absRect(header, src.width, src.height);
+  const words = await recognizeWords(worker, src, h, "");
 
   const out: { score?: number; ema?: number; impact?: number } = {};
-  for (const w of wordsOf(data)) {
-    const t = (w.text ?? "").trim().toUpperCase().replace(/[^A-Z\/]/g, "");
+  for (const w of words) {
+    const t = w.text.toUpperCase().replace(/[^A-Z\/]/g, "");
     if (!t) continue;
-    const center = (w.bbox.x0 + w.bbox.x1) / 2 / W;
+    const center = (w.x0 + w.x1) / 2;
     // É/M/A se lit selon les captures "E/M/A", "EMA", "É/M/A", "M/A"...
     if (out.ema === undefined && (t.includes("/M/") || t === "EMA" || t === "MA")) out.ema = center;
     else if (out.score === undefined && t.startsWith("SCOR")) out.score = center;
@@ -204,26 +171,22 @@ async function headerAnchors(
 }
 
 /**
- * Repere les colonnes en lisant quelques lignes. Renvoie null si le K/D/A n'est
- * trouve sur aucune ligne echantillon (capture non exploitable -> l'appelant
- * retombe sur les fractions par defaut du template).
+ * Repere les colonnes. Renvoie null si ni l'en-tete ni le K/D/A ne sont
+ * exploitables (l'appelant retombe alors sur les fractions par defaut).
  */
 export async function detectColumns(
   worker: Worker,
-  image: Buffer,
-  boxes: { body: TableTemplate["box"]; header: TableTemplate["box"] },
-  bands: RowBand[],
-  imgW: number,
-  imgH: number
+  src: ImageSource,
+  boxes: { body: RelBox; header: RelBox },
+  bands: RowBand[]
 ): Promise<DetectedColumns | null> {
   const box = boxes.body;
-  // Echantillon reparti sur la hauteur (evite de ne tomber que sur la ligne MVP).
   const idx: number[] = [];
   const stepI = Math.max(1, Math.floor(bands.length / SAMPLE_ROWS));
   for (let i = 0; i < bands.length && idx.length < SAMPLE_ROWS; i += stepI) idx.push(i);
 
-  // ── Ancrage 1 (principal) : les libelles de l'en-tete ────────────────────
-  const head = await headerAnchors(worker, image, boxes.header, imgW, imgH);
+  // ── Ancrage 1 : les libelles de l'en-tete ────────────────────────────────
+  const head = await headerAnchors(worker, src, boxes.header);
 
   let emaX0: number | undefined;
   let emaX1: number | undefined;
@@ -241,7 +204,6 @@ export async function detectColumns(
   }
 
   // ── Ancrage 2 (repli) : la signature "N/N/N" dans les lignes ─────────────
-  // Sert uniquement si l'en-tete n'a pas ete lu (capture rognee, langue exotique).
   if (emaX0 === undefined) {
     const kda0: number[] = [];
     const kda1: number[] = [];
@@ -249,8 +211,7 @@ export async function detectColumns(
     const sco1: number[] = [];
     for (const i of idx) {
       const words = await scanSpan(
-        worker, image, box, bands[i], imgW, imgH,
-        NUMERIC_ZONE_START, 1, "0123456789/"
+        worker, src, box, bands[i], NUMERIC_ZONE_START, 1, "0123456789/"
       );
       const kda = words.find((w) => KDA_RE.test(w.text));
       if (!kda) continue;
@@ -264,7 +225,7 @@ export async function detectColumns(
         sco1.push(left[0].x1);
       }
     }
-    if (kda0.length === 0) return null; // ni en-tete ni K/D/A : capture inexploitable
+    if (kda0.length === 0) return null; // ni en-tete ni K/D/A : inexploitable
     emaX0 = median(kda0);
     emaX1 = median(kda1);
     if (scoreX0 === undefined) {
@@ -278,15 +239,12 @@ export async function detectColumns(
     scoreX0 = emaX0 - 0.12;
     scoreX1 = emaX0 - 0.05;
   }
-  // Bornes desormais certaines : on fige pour que le typage suive.
   const ema0 = emaX0;
   const ema1 = emaX1;
   const sc0 = scoreX0;
   const sc1 = scoreX1;
 
-  // ── Passe pseudo : fenetre calee sur le score, affinee par OCR ───────────
-  // L'ecart pseudo->score est stable d'un appareil a l'autre (~29 % de la
-  // largeur du tableau), contrairement aux positions absolues.
+  // ── Pseudo : fenetre calee sur le score, affinee par OCR ─────────────────
   const scoreCenter = (sc0 + sc1) / 2;
   const searchFrom = Math.max(0, scoreCenter - PSEUDO_SEARCH_FROM);
   const searchTo = Math.max(searchFrom + 0.02, scoreCenter - PSEUDO_SEARCH_TO);
@@ -294,9 +252,7 @@ export async function detectColumns(
   const pse1: number[] = [];
 
   for (const i of idx) {
-    const words = (
-      await scanSpan(worker, image, box, bands[i], imgW, imgH, searchFrom, searchTo, "")
-    )
+    const words = (await scanSpan(worker, src, box, bands[i], searchFrom, searchTo, ""))
       .filter(
         (w) =>
           w.confidence > 0.3 &&
@@ -309,8 +265,8 @@ export async function detectColumns(
 
     // Le pseudo est le PREMIER groupe de mots contigus : on s'arrete au premier
     // vrai trou. Ca coupe naturellement avant l'icone "ajouter en ami" et le
-    // badge MVP, qui sont separes du pseudo par un blanc franc.
-    let x0 = words[0].x0;
+    // badge MVP, separes du pseudo par un blanc franc.
+    const x0 = words[0].x0;
     let x1 = words[0].x1;
     for (let k = 1; k < words.length; k++) {
       if (words[k].x0 - x1 > WORD_GAP) break;
@@ -320,7 +276,6 @@ export async function detectColumns(
     pse1.push(x1);
   }
 
-  // Sans pseudo repere, fenetre de repli resserree (evite l'icone "ami").
   const pseudoX0 = pse0.length ? median(pse0) : Math.max(0, scoreCenter - PSEUDO_FALLBACK_FROM);
   const pseudoX1 = pse1.length ? Math.max(...pse1) : scoreCenter - PSEUDO_FALLBACK_TO;
 
