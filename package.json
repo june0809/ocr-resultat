@@ -21,7 +21,14 @@
     "",
     "npm execute 'prepare' automatiquement lors d'une installation depuis git : le",
     "consommateur recoit du JS compile + les types, sans avoir a connaitre la",
-    "configuration TypeScript de ce repo."
+    "configuration TypeScript de ce repo.",
+    "",
+    "./pseudo est expose seul volontairement : c'est une utilite PURE, sans",
+    "dependance a tesseract.js (lequel ne rend pas la main hors navigateur). On",
+    "peut donc la tester ou la reutiliser sans charger le moteur entier.",
+    "",
+    "ATTENTION : le champ 'exports' n'accepte que des chemins commencant par '.'",
+    "— y glisser une cle de commentaire casse la resolution de Node."
   ],
   "files": [
     "dist"
@@ -38,6 +45,10 @@
     "./template": {
       "types": "./dist/template.d.ts",
       "default": "./dist/template.js"
+    },
+    "./pseudo": {
+      "types": "./dist/pseudo.d.ts",
+      "default": "./dist/pseudo.js"
     },
     "./package.json": "./package.json"
   },
