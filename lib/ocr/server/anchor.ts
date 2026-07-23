@@ -99,6 +99,16 @@ function contentBands(
   return out;
 }
 
+/** Bornes plausibles du nombre de joueurs par equipe sur un scoreboard CODM
+ *  (2v2 a 10v10). Hors de cette plage, le profil a capte autre chose que des
+ *  lignes de joueurs. */
+const MIN_ROWS = 2;
+const MAX_ROWS = 10;
+/** Ecart maximal tolere entre deux interlignes consecutifs et l'interligne moyen.
+ *  Des lignes de joueurs sont REGULIEREMENT espacees ; une bande parasite
+ *  (reste d'en-tete, trait de footer) casse cette regularite. */
+const MAX_STEP_DEVIATION = 0.35;
+
 /**
  * @param box boite du tableau RELATIVE a l'image (0–1), telle que rendue par
  *            autoDetectTables.
@@ -124,8 +134,22 @@ export async function anchorRows(
   const H = P.length;
   const centers = cb.map(([a, b]) => (a + b) / 2 / H);
   const count = centers.length;
+
+  // Garde-fou 1 : nombre de lignes plausible. Sans ca, un profil parasite produit
+  // un tableau DECALE mais d'apparence valide — l'erreur la plus dangereuse, car
+  // elle passe la validation humaine sans alerter.
+  if (count < MIN_ROWS || count > MAX_ROWS) return null;
+
   // pas entre lignes (etendu sur toute la liste) -> bandes pleine hauteur, calees
   // sur le texte. Robuste aux petits decalages d'UI (§4.2).
   const step = (centers[count - 1] - centers[0]) / (count - 1);
+  if (!(step > 0)) return null;
+
+  // Garde-fou 2 : regularite de l'interligne.
+  for (let i = 1; i < count; i++) {
+    const gap = centers[i] - centers[i - 1];
+    if (Math.abs(gap - step) / step > MAX_STEP_DEVIATION) return null;
+  }
+
   return centers.map((c) => ({ top: c - step / 2, height: step }));
 }

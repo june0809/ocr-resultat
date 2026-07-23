@@ -1,0 +1,30 @@
+{
+  "source": "web",
+  "game": "codm",
+  "mode": "team_deathmatch",
+  "captured_at": "2026-06-06T21:56:18Z",
+  "extracted": {
+    "teams": [
+      {
+        "placement": 2,
+        "rounds_won": 2,
+        "players": [
+          { "pseudo": "AZ-2101", "kills": 15, "deaths": 5, "assists": 0, "is_mvp": true },
+          { "pseudo": "AZ-0094", "kills": 2,  "deaths": 6, "assists": 0 },
+          { "pseudo": "AZ-1644", "kills": 0,  "deaths": 7, "assists": 1 },
+          { "pseudo": "le.d180", "kills": 0,  "deaths": 7, "assists": 0 }
+        ]
+      },
+      {
+        "placement": 1,
+        "rounds_won": 5,
+        "players": [
+          { "pseudo": "AZ-1312", "kills": 14, "deaths": 3, "assists": 0, "is_mvp": true },
+          { "pseudo": "AZ-0372", "kills": 7,  "deaths": 4, "assists": 0 },
+          { "pseudo": "AZ-4780", "kills": 3,  "deaths": 5, "assists": 2 },
+          { "pseudo": "AZ-1909", "kills": 1,  "deaths": 5, "assists": 0 }
+        ]
+      }
+    ]
+  }
+}

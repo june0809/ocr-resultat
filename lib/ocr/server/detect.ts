@@ -22,6 +22,16 @@ export interface Box {
   height: number;
 }
 
+/** Boites d'un tableau : la zone des joueurs + la barre d'en-tete au-dessus.
+ *  L'en-tete porte les libelles de colonnes ("JOUEUR / SCORE / É/M/A / IMPACT"),
+ *  ecrits dans une police d'INTERFACE nette sur un aplat de couleur — bien plus
+ *  lisibles que les pseudos stylises. C'est le meilleur ancrage de colonnes
+ *  disponible (cf. columns.ts). */
+export interface TableBoxes {
+  body: Box;
+  header: Box;
+}
+
 const isBlue = (r: number, g: number, b: number) =>
   b > 110 && b - r > 25 && b - g > 5 && r < 140;
 const isRed = (r: number, g: number, b: number) =>
@@ -33,7 +43,7 @@ const isRed = (r: number, g: number, b: number) =>
  */
 export async function autoDetectTables(
   image: Buffer
-): Promise<{ blue: Box; red: Box } | null> {
+): Promise<{ blue: TableBoxes; red: TableBoxes } | null> {
   // ensureAlpha() force 4 canaux (RGBA) : on retrouve exactement le stride du
   // canvas navigateur -> l'indexation des pixels est identique au code d'origine.
   const { data, info } = await sharp(image)
@@ -103,11 +113,20 @@ export async function autoDetectTables(
   }
 
   const top = hBot;
-  const mk = (xMin: number, xMax: number): Box => ({
-    x: xMin / imgW,
-    y: top / imgH,
-    width: (xMax - xMin) / imgW,
-    height: (bottom - top) / imgH,
+  const mk = (xMin: number, xMax: number): TableBoxes => ({
+    body: {
+      x: xMin / imgW,
+      y: top / imgH,
+      width: (xMax - xMin) / imgW,
+      height: (bottom - top) / imgH,
+    },
+    // Barre d'en-tete : meme etendue en X, la bande de couleur en Y.
+    header: {
+      x: xMin / imgW,
+      y: hTop / imgH,
+      width: (xMax - xMin) / imgW,
+      height: Math.max(1, hBot - hTop) / imgH,
+    },
   });
   return { blue: mk(bxMin, bxMax), red: mk(rxMin, rxMax) };
 }

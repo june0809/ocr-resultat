@@ -14,11 +14,17 @@ interface Case {
   truth: string | null;
 }
 
+// Deux familles d'appareils VOLONTAIREMENT melangees : le scoreboard CODM ne se
+// contente pas de se redimensionner, il REFOND sa mise en page selon le ratio de
+// l'ecran. Un banc qui ne testerait qu'une famille validerait une calibration qui
+// casse sur l'autre.
+//   iPad      2420x1668 (ratio 1.45) : pseudo 23.6-37 %, score 50-57 %, K/D/A 65-73.5 %
+//   telephone 1600x720  (ratio 2.22) : pseudo 18.6-26 %, score 44.9-49.5 %, K/D/A 61.8-68.5 %
 const CASES: Case[] = [
   { img: "examples/screens/codm-tdm-01.jpg", size: 5, truth: "examples/web-codm-tdm.json" },
   { img: "examples/screens/codm-tdm-02.jpg", size: 5, truth: "examples/web-codm-tdm-02.json" },
   { img: "examples/screens/codm-tdm-03.jpg", size: 5, truth: "examples/web-codm-tdm-03.json" },
-  { img: "examples/screens/codm-tournoi-01.webp", size: 4, truth: null },
+  { img: "examples/screens/codm-tel-01.png", size: 4, truth: "examples/web-codm-tel.json" },
 ];
 
 async function main(): Promise<void> {

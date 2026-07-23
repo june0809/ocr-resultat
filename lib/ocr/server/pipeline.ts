@@ -3,6 +3,8 @@ import { createWorker, PSM, type Worker } from "tesseract.js";
 import os from "node:os";
 import path from "node:path";
 import { cellRect, type Column, type GameTemplate } from "../template";
+import { cleanPseudo } from "../pseudo";
+import { detectColumns } from "./columns";
 
 /**
  * Pipeline OCR SERVEUR (§4.3) — port de lib/ocr/pipeline.ts, qui tournait sur
@@ -153,10 +155,35 @@ export async function runOcr(
       const players: OcrPlayer[] = [];
 
       const rowCount = table.rows.bands?.length ?? table.rows.count;
+
+      // ── Colonnes : detectees sur la capture, pas codees en dur ──────────────
+      // Indispensable : CODM refond sa mise en page selon le ratio de l'ecran
+      // (cf. columns.ts). On repere le K/D/A par sa signature "N/N/N", et les
+      // autres colonnes s'en deduisent. Repli sur les fractions du template si
+      // le reperage echoue (capture exotique) -> jamais de blocage.
+      let columns: Column[] = table.columns;
+      if (table.rows.bands?.length && table.header) {
+        const detected = await detectColumns(
+          worker,
+          image,
+          { body: table.box, header: table.header },
+          table.rows.bands,
+          imgW,
+          imgH
+        );
+        if (detected) columns = detected.columns;
+        if (process.env.OCR_DEBUG) {
+          console.log(
+            `[cols ${table.side}] ` +
+              (detected ? detected.detail : "NON DETECTE -> fractions par defaut")
+          );
+        }
+      }
+
       for (let row = 0; row < rowCount; row++) {
         const byField: Record<string, OcrCell> = {};
 
-        for (const col of table.columns) {
+        for (const col of columns) {
           const rect = cellRect(table, row, col, imgW, imgH);
           byField[col.field] = await recognizeCell(
             worker,
@@ -171,7 +198,8 @@ export async function runOcr(
         const ema = parseEma(emaCell.text);
 
         players.push({
-          pseudo: pseudoCell.text,
+          // surnom "(Paul)" retire : libelle d'interface, pas le pseudo en jeu.
+          pseudo: cleanPseudo(pseudoCell.text),
           kills: ema.kills,
           deaths: ema.deaths,
           assists: ema.assists,

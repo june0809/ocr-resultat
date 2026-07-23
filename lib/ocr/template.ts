@@ -41,6 +41,9 @@ export interface TableTemplate {
   side: "blue" | "red";
   /** Boite du tableau, RELATIVE a l'image entiere (0–1). Ajustee par l'alignement. */
   box: { x: number; y: number; width: number; height: number };
+  /** Barre d'en-tete ("JOUEUR / SCORE / É/M/A / IMPACT"), RELATIVE a l'image.
+   *  Sert d'ancrage principal pour la detection des colonnes (chemin serveur). */
+  header?: { x: number; y: number; width: number; height: number };
   /**
    * Lignes RELATIVES a la boite. Modele par defaut : decoupage EGAL (`top`,
    * `height`, `count`). Si `bands` est fourni (ancrage par projection), il PRIME :
@@ -58,21 +61,37 @@ export interface GameTemplate {
 
 /**
  * Colonnes communes aux deux tableaux (memes proportions internes), RELATIVES a
- * la boite du tableau. Calibre sur les captures reelles CODM S&D (examples/screens) :
- * rang (0–0.14) et avatar (0.14–0.20) ignores. La disposition interne des deux
- * tableaux est symetrique (verifie : score et É/M/A tombent aux memes fractions).
+ * la boite du tableau (= etendue de la barre d'en-tete detectee).
+ *
+ * CALIBRE AU PIXEL sur les vraies captures (scripts/calib-dump.ts pose une regle
+ * en % sur la boite detectee). Reperes mesures, en % de la largeur de boite :
+ *
+ *   0–9    medaillon de rang (1/2/3, ou chiffre nu)
+ *   10–20.5 avatar (portrait du joueur)
+ *   22–27  embleme de clan / rang  <- dans le BAS de la ligne (exclu par yHeight)
+ *   23.6–37 PSEUDO
+ *   37.5–42 bouton ami / inviter   <- a exclure imperativement
+ *   43.5–50 badge MVP (1re ligne seulement)
+ *   50–57  SCORE
+ *   58–62  bouton "..."            <- a exclure
+ *   65–73.5 K/D/A
+ *   84–89  impact (non utilise)
+ *
+ * La calibration precedente (pseudo 16–36 %) DEMARRAIT DANS L'AVATAR : le bord
+ * du portrait produisait le bruit de tete recurrent ("nN ", "By | ", "= ", "> ")
+ * et le pseudo etait tronque a droite ("AZ-Alk_pc(Pau"). Le score (40–51 %) ne
+ * couvrait meme pas le nombre : il lisait le bouton ami et le badge MVP.
  */
-// Colonnes RELATIVES a la boite detectee (= etendue de la barre d'en-tete).
-// Valeurs validees sur les 4 vraies captures (classees 5v5 + tournoi 4v4).
 export const SND_COLUMNS: Column[] = [
-  // yHeight 0.55 : ne lit que le haut de la ligne (le pseudo), pas l'etoile de
-  // clan / l'embleme du bas -> supprime les caracteres parasites (@400, ®, ...).
-  { field: "pseudo", type: "text", x: 0.16, width: 0.2, yHeight: 0.55 },
-  // score resserre pour exclure le bouton "..." a droite du nombre (sinon les
-  // petits nombres, ex. "0", se lisent mal). Non transmis a The Circle : sert a
+  // 22.5–37 % : demarre APRES l'avatar, s'arrete AVANT le bouton ami.
+  // yHeight 0.55 : ne lit que le haut de la ligne (le texte), pas l'embleme de
+  // clan du bas -> supprime les caracteres parasites (@400, ®, ...).
+  { field: "pseudo", type: "text", x: 0.225, width: 0.145, yHeight: 0.55 },
+  // 49.5–58 % : centre sur le nombre. Non transmis a The Circle : sert a
   // l'affichage et a la verif de coherence (scores decroissants).
-  { field: "score", type: "int", x: 0.4, width: 0.11 },
-  { field: "ema", type: "ema", x: 0.58, width: 0.17 },
+  { field: "score", type: "int", x: 0.495, width: 0.085 },
+  // 63–75 % : resserre autour du K/D/A, exclut le bouton "..." (58–62 %).
+  { field: "ema", type: "ema", x: 0.63, width: 0.12 },
   // impact (>0.8) ignore : non utilise cote The Circle.
 ];
 /** Construit les 2 tableaux CODM S&D a partir des boites (auto-detectees ou
@@ -95,16 +114,18 @@ export function codmSndTables(
  * la capture, pas choisi a la main. Remplace le decoupage egal + la grille v1.
  */
 export function codmSndTablesAnchored(
-  blue: { box: TableTemplate["box"]; bands: RowBand[] },
-  red: { box: TableTemplate["box"]; bands: RowBand[] }
+  blue: { box: TableTemplate["box"]; header?: TableTemplate["header"]; bands: RowBand[] },
+  red: { box: TableTemplate["box"]; header?: TableTemplate["header"]; bands: RowBand[] }
 ): TableTemplate[] {
   const mk = (
     side: "blue" | "red",
     box: TableTemplate["box"],
+    header: TableTemplate["header"],
     bands: RowBand[]
   ): TableTemplate => ({
     side,
     box,
+    ...(header ? { header } : {}),
     rows: {
       top: 0,
       height: bands.length ? 1 / bands.length : 1,
@@ -113,7 +134,10 @@ export function codmSndTablesAnchored(
     },
     columns: SND_COLUMNS,
   });
-  return [mk("blue", blue.box, blue.bands), mk("red", red.box, red.bands)];
+  return [
+    mk("blue", blue.box, blue.header, blue.bands),
+    mk("red", red.box, red.header, red.bands),
+  ];
 }
 
 /** Template par defaut (boites approximatives ; en pratique l'auto-detection

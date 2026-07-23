@@ -1,5 +1,6 @@
-import { createWorker, type Worker } from "tesseract.js";
+import { createWorker, PSM, type Worker } from "tesseract.js";
 import { cellRect, type Column, type GameTemplate } from "./template";
+import { cleanPseudo } from "./pseudo";
 
 /**
  * Pipeline OCR navigateur (SPEC §5). Tourne cote CLIENT uniquement (canvas + WASM).
@@ -130,6 +131,7 @@ async function recognizeCell(
 ): Promise<OcrCell> {
   await worker.setParameters({
     tessedit_char_whitelist: WHITELIST[type],
+    tessedit_pageseg_mode: PSM.SINGLE_LINE, // ligne unique (§4.3) — aligne sur le serveur
   });
   const { data } = await worker.recognize(canvas);
   return {
@@ -177,7 +179,8 @@ export async function runOcr(
         const ema = parseEma(emaCell.text);
 
         players.push({
-          pseudo: pseudoCell.text,
+          // surnom "(Paul)" retire : libelle d'interface, pas le pseudo en jeu.
+          pseudo: cleanPseudo(pseudoCell.text),
           kills: ema.kills,
           deaths: ema.deaths,
           assists: ema.assists,

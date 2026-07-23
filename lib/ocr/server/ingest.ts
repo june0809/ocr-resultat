@@ -53,20 +53,30 @@ export async function ocrImage(
   const imgH = meta.height ?? 0;
   if (imgW < 2 || imgH < 2) return unreadable("dimensions image invalides");
 
+  // Le Lot A ne sait lire QUE la mise en page S&D (2 tableaux, barres d'en-tete
+  // bleue/rouge). Une liste de placement battle royale n'a pas ces reperes :
+  // autoDetectTables echouerait avec un "barres non detectees" trompeur, qui
+  // ferait chercher un probleme de capture au lieu d'une capacite absente.
+  if (screen === "codm_br") {
+    return unreadable(
+      "ecran battle royale non supporte (Lot A lit uniquement les scoreboards d'equipe CODM)"
+    );
+  }
+
   const boxes = await autoDetectTables(image);
   if (!boxes) return unreadable("tableaux (barres bleu/rouge) non detectes");
 
   // Ancrage des lignes par projection, independamment pour chaque equipe.
-  const blueBands = await anchorRows(image, boxes.blue, imgW, imgH);
-  const redBands = await anchorRows(image, boxes.red, imgW, imgH);
+  const blueBands = await anchorRows(image, boxes.blue.body, imgW, imgH);
+  const redBands = await anchorRows(image, boxes.red.body, imgW, imgH);
   if (!blueBands || !redBands) return unreadable("lignes de joueurs non ancrees");
 
   const template: GameTemplate = {
     game,
     mode: screenToMode(screen),
     tables: codmSndTablesAnchored(
-      { box: boxes.blue, bands: blueBands },
-      { box: boxes.red, bands: redBands }
+      { box: boxes.blue.body, header: boxes.blue.header, bands: blueBands },
+      { box: boxes.red.body, header: boxes.red.header, bands: redBands }
     ),
   };
   const ocr = await runOcr(image, imgW, imgH, template);
