@@ -43,7 +43,7 @@ interface Word {
 }
 
 /** Lignes echantillonnees pour le reperage (compromis cout/robustesse). */
-const SAMPLE_ROWS = 4;
+const SAMPLE_ROWS = 2;
 /** Marge ajoutee autour des bornes detectees, en fraction de la boite. */
 const PAD = 0.012;
 /** La passe "chiffres" ne regarde que la droite du tableau : au-dela de cette

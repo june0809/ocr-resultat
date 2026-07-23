@@ -115,15 +115,23 @@ async function preprocessCell(
     .toBuffer();
 }
 
+/** Regle le moteur pour un TYPE de colonne. A appeler le moins souvent possible :
+ *  un changement de parametres force tesseract a se reinitialiser, ce qui coute
+ *  bien plus cher que la reconnaissance elle-meme sur un CPU contraint. D'ou la
+ *  boucle "colonne d'abord" de runOcr : 3 appels par tableau au lieu d'un par
+ *  cellule (~40). */
+async function setCellParams(worker: Worker, type: Column["type"]): Promise<void> {
+  await worker.setParameters({
+    tessedit_char_whitelist: WHITELIST[type],
+    tessedit_pageseg_mode: PSM.SINGLE_LINE, // ligne unique (§4.3)
+  });
+}
+
 async function recognizeCell(
   worker: Worker,
   buffer: Buffer,
   type: Column["type"]
 ): Promise<OcrCell> {
-  await worker.setParameters({
-    tessedit_char_whitelist: WHITELIST[type],
-    tessedit_pageseg_mode: PSM.SINGLE_LINE, // ligne unique (§4.3)
-  });
   const { data } = await worker.recognize(buffer);
   return {
     text: data.text.trim().replace(/\s+/g, type === "text" ? " " : ""),
@@ -180,17 +188,23 @@ export async function runOcr(
         }
       }
 
-      for (let row = 0; row < rowCount; row++) {
-        const byField: Record<string, OcrCell> = {};
-
-        for (const col of columns) {
+      // Boucle COLONNE d'abord, puis lignes : les parametres du moteur ne
+      // changent qu'a chaque colonne (3 fois) au lieu de chaque cellule (~40).
+      const grid: Array<Record<string, OcrCell>> = Array.from({ length: rowCount }, () => ({}));
+      for (const col of columns) {
+        await setCellParams(worker, col.type);
+        for (let row = 0; row < rowCount; row++) {
           const rect = cellRect(table, row, col, imgW, imgH);
-          byField[col.field] = await recognizeCell(
+          grid[row][col.field] = await recognizeCell(
             worker,
             await preprocessCell(image, rect, imgW, imgH),
             col.type
           );
         }
+      }
+
+      for (let row = 0; row < rowCount; row++) {
+        const byField = grid[row];
 
         const pseudoCell = byField.pseudo ?? { text: "", confidence: 0 };
         const scoreCell = byField.score ?? { text: "", confidence: 0 };
