@@ -66,8 +66,25 @@ export interface ImageSource {
    * elle doit rester identique des deux cotes, sinon le banc ne dit plus la
    * verite sur ce que verra l'utilisateur.
    */
-  crop(rect: Rect, scale: number): Promise<OcrImage>;
+  crop(rect: Rect, scale: number, opts?: CropOptions): Promise<OcrImage>;
 }
+
+export interface CropOptions {
+  /**
+   * Renforcement de contraste avant normalisation (v -> 2v - 60).
+   *
+   * Necessaire sur le texte GRIS peu contraste : le score de manches de
+   * certaines captures ("VICTOIRE5:4") est illisible sans, et parfaitement lu
+   * avec. Inutile — voire nuisible — sur le texte deja bien contraste, d'ou son
+   * usage en cascade plutot qu'en systematique.
+   */
+  contrast?: boolean;
+}
+
+/** Coefficients du renforcement de contraste, partages par les deux adaptateurs
+ *  pour que le banc headless dise la verite sur ce que verra l'utilisateur. */
+export const CONTRAST_GAIN = 2.0;
+export const CONTRAST_BIAS = -60;
 
 /** Borne un rectangle a l'interieur de l'image (evite les extractions hors cadre). */
 export function clampRect(rect: Rect, imgW: number, imgH: number): Rect {

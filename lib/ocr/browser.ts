@@ -16,7 +16,7 @@ import type { OcrResult } from "./core/pipeline";
  */
 
 export type { OcrResult, OcrPlayer, OcrTeam, OcrCell } from "./core/pipeline";
-export type { ScoreboardResult } from "./core/scoreboard";
+export type { ScoreboardResult, RoundScore } from "./core/scoreboard";
 export { cleanPseudo } from "./pseudo";
 
 export interface BrowserOcrOptions extends ScoreboardOptions {
@@ -61,7 +61,7 @@ export async function readScoreboardFromImage(
   width: number,
   height: number,
   opts: BrowserOcrOptions = {}
-): Promise<{ ok: true; result: OcrResult } | { ok: false; reason: string }> {
+): Promise<BrowserReadResult> {
   const worker = await createBrowserWorker(opts);
   try {
     return await readScoreboardWith(worker, source, width, height, opts);
@@ -70,6 +70,11 @@ export async function readScoreboardFromImage(
   }
 }
 
+import type { RoundScore } from "./core/roundscore";
+export type BrowserReadResult =
+  | { ok: true; result: OcrResult; roundScore: RoundScore | null }
+  | { ok: false; reason: string };
+
 /** Variante a worker fourni (reutilisable). */
 export async function readScoreboardWith(
   worker: Worker,
@@ -77,8 +82,10 @@ export async function readScoreboardWith(
   width: number,
   height: number,
   opts: ScoreboardOptions = {}
-): Promise<{ ok: true; result: OcrResult } | { ok: false; reason: string }> {
+): Promise<BrowserReadResult> {
   const src = createCanvasSource(source, width, height);
   const out = await readScoreboard(worker, src, opts);
-  return out.ok ? { ok: true, result: out.result } : { ok: false, reason: out.reason };
+  return out.ok
+    ? { ok: true, result: out.result, roundScore: out.roundScore }
+    : { ok: false, reason: out.reason };
 }

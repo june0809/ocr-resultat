@@ -3,6 +3,7 @@ import type { ImageSource } from "./source";
 import { autoDetectTables } from "./detect";
 import { anchorRows } from "./anchor";
 import { runOcr, type OcrResult } from "./pipeline";
+import { readRoundScore, type RoundScore } from "./roundscore";
 import { codmSndTablesAnchored, type GameTemplate, type Mode } from "../template";
 
 /**
@@ -13,8 +14,10 @@ import { codmSndTablesAnchored, type GameTemplate, type Mode } from "../template
  * Aucune capture n'est conservee : on lit les pixels, on rend le resultat.
  */
 
+export type { RoundScore } from "./roundscore";
+
 export type ScoreboardResult =
-  | { ok: true; result: OcrResult; template: GameTemplate }
+  | { ok: true; result: OcrResult; template: GameTemplate; roundScore: RoundScore | null }
   | { ok: false; reason: string };
 
 export interface ScoreboardOptions {
@@ -47,5 +50,16 @@ export async function readScoreboard(
   };
 
   const result = await runOcr(worker, src, template, { onDebug: opts.onDebug });
-  return { ok: true, result, template };
+
+  // Score de manches ("2:5") = vainqueur déterministe, lu dans la bande au-dessus
+  // des barres d'en-tête. Best-effort : s'il est illisible, l'UI redemandera.
+  let roundScore: RoundScore | null = null;
+  try {
+    roundScore = await readRoundScore(worker, src, boxes.blue.header.y);
+  } catch {
+    roundScore = null;
+  }
+  opts.onDebug?.(`[round] ${roundScore ? `${roundScore.blue}:${roundScore.red}` : "non lu"}`);
+
+  return { ok: true, result, template, roundScore };
 }

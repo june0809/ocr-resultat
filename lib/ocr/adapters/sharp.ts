@@ -1,5 +1,14 @@
 import sharp from "sharp";
-import { clampRect, type ImageSource, type OcrImage, type Raster, type Rect } from "../core/source";
+import {
+  clampRect,
+  CONTRAST_BIAS,
+  CONTRAST_GAIN,
+  type CropOptions,
+  type ImageSource,
+  type OcrImage,
+  type Raster,
+  type Rect,
+} from "../core/source";
 
 /**
  * Adaptateur SERVEUR (Node) — pixels via sharp.
@@ -37,15 +46,14 @@ export async function createSharpSource(image: Buffer): Promise<ImageSource> {
       return { data, width: info.width, height: info.height, channels: info.channels };
     },
 
-    async crop(rect: Rect, scale: number): Promise<OcrImage> {
+    async crop(rect: Rect, scale: number, opts: CropOptions = {}): Promise<OcrImage> {
       const r = clampRect(rect, width, height);
-      return sharp(image)
+      let p = sharp(image)
         .extract({ left: r.x, top: r.y, width: r.width, height: r.height })
         .resize({ width: Math.max(1, Math.round(r.width * scale)) })
-        .grayscale()
-        .normalize()
-        .png()
-        .toBuffer() as unknown as OcrImage;
+        .grayscale();
+      if (opts.contrast) p = p.linear(CONTRAST_GAIN, CONTRAST_BIAS);
+      return p.normalize().png().toBuffer() as unknown as OcrImage;
     },
   };
 }

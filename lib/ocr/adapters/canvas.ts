@@ -1,4 +1,13 @@
-import { clampRect, type ImageSource, type OcrImage, type Raster, type Rect } from "../core/source";
+import {
+  clampRect,
+  CONTRAST_BIAS,
+  CONTRAST_GAIN,
+  type CropOptions,
+  type ImageSource,
+  type OcrImage,
+  type Raster,
+  type Rect,
+} from "../core/source";
 
 /**
  * Adaptateur NAVIGATEUR — pixels via canvas 2D.
@@ -59,7 +68,7 @@ export function createCanvasSource(
       return { data: d, width: r.width, height: r.height, channels: 4 };
     },
 
-    async crop(rect: Rect, scale: number): Promise<OcrImage> {
+    async crop(rect: Rect, scale: number, opts: CropOptions = {}): Promise<OcrImage> {
       const r = clampRect(rect, width, height);
       const ctx = ctxOf(r.width * scale, r.height * scale);
       ctx.imageSmoothingEnabled = true;
@@ -70,7 +79,9 @@ export function createCanvasSource(
       let min = 255;
       let max = 0;
       for (let i = 0; i < d.length; i += 4) {
-        const y = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+        let y = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+        // Meme renforcement que sharp.linear(), applique avant l'etirement.
+        if (opts.contrast) y = Math.max(0, Math.min(255, y * CONTRAST_GAIN + CONTRAST_BIAS));
         d[i] = d[i + 1] = d[i + 2] = y;
         if (y < min) min = y;
         if (y > max) max = y;
