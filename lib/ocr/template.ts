@@ -13,10 +13,10 @@ export type Mode = "battle_royale" | "team_deathmatch" | "free_for_all";
  * La colonne É/M/A est fusionnee (ex. "15/7/0") -> decoupee en kills/deaths/assists
  * par le pipeline.
  *
- * ⚠️ Les valeurs ci-dessous sont des DEFAUTS a calibrer sur les vraies captures.
- * L'outil d'alignement de la page d'upload permet a l'utilisateur d'ajuster la
- * boite de chaque tableau visuellement : la calibration exacte n'est donc pas
- * bloquante, ces defauts servent de point de depart.
+ * ⚠️ Les valeurs ci-dessous ne sont qu'un REPLI. En usage normal rien n'est cale
+ * a la main : core/detect repere les tableaux, core/anchor les lignes et
+ * core/columns les colonnes, directement sur la capture. Ces constantes ne
+ * servent que si la detection des colonnes echoue.
  */
 
 export type FieldType = "text" | "int" | "ema";
@@ -34,7 +34,7 @@ export interface Column {
 }
 
 /** Une bande de ligne (1 joueur), RELATIVE a la boite du tableau (0–1). Produite
- *  par l'ancrage par projection (lib/ocr/server/anchor.ts, §4.2.3). */
+ *  par l'ancrage par projection (lib/ocr/core/anchor.ts, §4.2.3). */
 export interface RowBand {
   top: number;
   height: number;
@@ -42,7 +42,7 @@ export interface RowBand {
 
 export interface TableTemplate {
   side: "blue" | "red";
-  /** Boite du tableau, RELATIVE a l'image entiere (0–1). Ajustee par l'alignement. */
+  /** Boite du tableau, RELATIVE a l'image entiere (0–1). Rendue par core/detect. */
   box: { x: number; y: number; width: number; height: number };
   /** Barre d'en-tete ("JOUEUR / SCORE / É/M/A / IMPACT"), RELATIVE a l'image.
    *  Sert d'ancrage principal pour la detection des colonnes (chemin serveur). */

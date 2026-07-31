@@ -13,6 +13,19 @@ on:
   pull_request:
 
 jobs:
+  # Aucune dependance a installer : ce job doit rendre son verdict vite, et avant
+  # tout le reste. Une cle d'API de production a deja ete commitee en clair dans
+  # ce depot (public) ; supprimer le fichier ensuite n'a rien revoque.
+  secrets:
+    name: Aucun secret commite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run check:secrets
+
   # Ce qu'on livre a The Circle. A garder vert en priorite absolue.
   paquet:
     name: Paquet consommable
