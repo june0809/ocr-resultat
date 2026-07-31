@@ -1,6 +1,7 @@
 import { type Worker } from "tesseract.js";
 import { type ScoreboardOptions } from "./core/scoreboard";
 import type { OcrResult } from "./core/pipeline";
+import type { RoundScore } from "./core/roundscore";
 /**
  * POINT D'ENTREE NODE du moteur (memes algorithmes que browser.ts, autre source
  * de pixels).
@@ -12,6 +13,7 @@ import type { OcrResult } from "./core/pipeline";
  * browser.ts qu'il faut utiliser.
  */
 export type { OcrResult, OcrPlayer, OcrTeam, OcrCell } from "./core/pipeline";
+export type { RoundScore };
 export { cleanPseudo } from "./pseudo";
 export interface ServerOcrOptions extends ScoreboardOptions {
     /** Dossier de la traineddata vendoree. Defaut : paquet @tesseract.js-data/eng. */
@@ -20,12 +22,21 @@ export interface ServerOcrOptions extends ScoreboardOptions {
     cachePath?: string;
 }
 export declare function createServerWorker(opts?: ServerOcrOptions): Promise<Worker>;
-/** Lit un scoreboard depuis un buffer d'image. Cree un worker et le libere. */
-export declare function readScoreboardFromBuffer(image: Buffer, opts?: ServerOcrOptions): Promise<{
+export type ServerReadResult = {
     ok: true;
     result: OcrResult;
+    roundScore: RoundScore | null;
 } | {
     ok: false;
     reason: string;
-}>;
+};
+/**
+ * Lit un scoreboard depuis un buffer d'image. Cree un worker et le libere.
+ *
+ * `roundScore` est rendu au meme titre que les stats : c'est lui qui designe le
+ * vainqueur en Recherche & Destruction (ni les kills ni le score individuel ne
+ * le font). `null` s'il n'a pas pu etre lu — a l'appelant de le redemander,
+ * plutot que de deduire un gagnant d'un critere qui ne s'applique pas.
+ */
+export declare function readScoreboardFromBuffer(image: Buffer, opts?: ServerOcrOptions): Promise<ServerReadResult>;
 //# sourceMappingURL=server.d.ts.map

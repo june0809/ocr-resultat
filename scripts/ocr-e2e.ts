@@ -27,9 +27,26 @@ const CASES: Case[] = [
   { img: "examples/screens/codm-tel-01.png", size: 4, truth: "examples/web-codm-tel.json" },
 ];
 
+/** Score de manches + vainqueur attendus, lus dans la verite terrain. Les fichiers
+ *  examples/web-*.json portent deja `rounds_won` et `placement` par equipe : on
+ *  s'en sert plutot que de recopier des constantes qui deriveraient. */
+function expectedRounds(truth: {
+  extracted: { teams: Array<{ rounds_won?: number; placement?: number }> };
+}): { blue: number; red: number; winner: 1 | 2 } | null {
+  const [blue, red] = truth.extracted.teams;
+  if (blue?.rounds_won === undefined || red?.rounds_won === undefined) return null;
+  return {
+    blue: blue.rounds_won,
+    red: red.rounds_won,
+    winner: blue.placement === 1 ? 1 : 2,
+  };
+}
+
 async function main(): Promise<void> {
   let gOk = 0;
   let gTot = 0;
+  let rOk = 0;
+  let rTot = 0;
   let failures = 0;
 
   for (const c of CASES) {
@@ -72,6 +89,31 @@ async function main(): Promise<void> {
       gOk += ok;
       gTot += tot;
       console.log(`  K/D/A vs verite : ${ok}/${tot} (${((ok / tot) * 100).toFixed(0)}%)`);
+
+      // Score de manches : c'est lui qui designe le vainqueur en R&D. Une erreur
+      // ici attribue la victoire a la mauvaise equipe — plus grave qu'un K/D/A
+      // faux, d'ou son comptage a part et son echec dur.
+      const exp = expectedRounds(truth);
+      if (exp) {
+        rTot++;
+        const blue = r.teams[0];
+        const red = r.teams[1];
+        const got =
+          blue?.rounds_won !== undefined && red?.rounds_won !== undefined
+            ? { blue: blue.rounds_won, red: red.rounds_won, winner: blue.placement }
+            : null;
+        const match =
+          got !== null &&
+          got.blue === exp.blue &&
+          got.red === exp.red &&
+          got.winner === exp.winner;
+        if (match) rOk++;
+        else failures++;
+        const shown = got ? `${got.blue}:${got.red} (gagnant equipe ${got.winner})` : "NON LU";
+        console.log(
+          `  Manches vs verite : ${shown} vs ${exp.blue}:${exp.red} (gagnant equipe ${exp.winner}) ${match ? "OK" : "MISMATCH"}`
+        );
+      }
     }
 
     for (const t of r.teams) {
@@ -85,7 +127,8 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `\n==== K/D/A verite terrain : ${gOk}/${gTot} (${gTot ? ((gOk / gTot) * 100).toFixed(1) : "-"}%) | echecs: ${failures} ====`
+    `\n==== K/D/A verite terrain : ${gOk}/${gTot} (${gTot ? ((gOk / gTot) * 100).toFixed(1) : "-"}%)` +
+      ` | manches+vainqueur : ${rOk}/${rTot} | echecs: ${failures} ====`
   );
   process.exit(failures > 0 ? 1 : 0);
 }

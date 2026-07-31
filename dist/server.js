@@ -27,7 +27,14 @@ async function createServerWorker(opts = {}) {
         gzip: true,
     });
 }
-/** Lit un scoreboard depuis un buffer d'image. Cree un worker et le libere. */
+/**
+ * Lit un scoreboard depuis un buffer d'image. Cree un worker et le libere.
+ *
+ * `roundScore` est rendu au meme titre que les stats : c'est lui qui designe le
+ * vainqueur en Recherche & Destruction (ni les kills ni le score individuel ne
+ * le font). `null` s'il n'a pas pu etre lu — a l'appelant de le redemander,
+ * plutot que de deduire un gagnant d'un critere qui ne s'applique pas.
+ */
 async function readScoreboardFromBuffer(image, opts = {}) {
     let src;
     try {
@@ -39,7 +46,9 @@ async function readScoreboardFromBuffer(image, opts = {}) {
     const worker = await createServerWorker(opts);
     try {
         const out = await (0, scoreboard_1.readScoreboard)(worker, src, opts);
-        return out.ok ? { ok: true, result: out.result } : { ok: false, reason: out.reason };
+        return out.ok
+            ? { ok: true, result: out.result, roundScore: out.roundScore }
+            : { ok: false, reason: out.reason };
     }
     finally {
         await worker.terminate();

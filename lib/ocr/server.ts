@@ -4,6 +4,7 @@ import { createWorker, type Worker } from "tesseract.js";
 import { createSharpSource } from "./adapters/sharp";
 import { readScoreboard, type ScoreboardOptions } from "./core/scoreboard";
 import type { OcrResult } from "./core/pipeline";
+import type { RoundScore } from "./core/roundscore";
 
 /**
  * POINT D'ENTREE NODE du moteur (memes algorithmes que browser.ts, autre source
@@ -17,6 +18,7 @@ import type { OcrResult } from "./core/pipeline";
  */
 
 export type { OcrResult, OcrPlayer, OcrTeam, OcrCell } from "./core/pipeline";
+export type { RoundScore };
 export { cleanPseudo } from "./pseudo";
 
 export interface ServerOcrOptions extends ScoreboardOptions {
@@ -44,11 +46,22 @@ export async function createServerWorker(opts: ServerOcrOptions = {}): Promise<W
   });
 }
 
-/** Lit un scoreboard depuis un buffer d'image. Cree un worker et le libere. */
+export type ServerReadResult =
+  | { ok: true; result: OcrResult; roundScore: RoundScore | null }
+  | { ok: false; reason: string };
+
+/**
+ * Lit un scoreboard depuis un buffer d'image. Cree un worker et le libere.
+ *
+ * `roundScore` est rendu au meme titre que les stats : c'est lui qui designe le
+ * vainqueur en Recherche & Destruction (ni les kills ni le score individuel ne
+ * le font). `null` s'il n'a pas pu etre lu — a l'appelant de le redemander,
+ * plutot que de deduire un gagnant d'un critere qui ne s'applique pas.
+ */
 export async function readScoreboardFromBuffer(
   image: Buffer,
   opts: ServerOcrOptions = {}
-): Promise<{ ok: true; result: OcrResult } | { ok: false; reason: string }> {
+): Promise<ServerReadResult> {
   let src;
   try {
     src = await createSharpSource(image);
@@ -58,7 +71,9 @@ export async function readScoreboardFromBuffer(
   const worker = await createServerWorker(opts);
   try {
     const out = await readScoreboard(worker, src, opts);
-    return out.ok ? { ok: true, result: out.result } : { ok: false, reason: out.reason };
+    return out.ok
+      ? { ok: true, result: out.result, roundScore: out.roundScore }
+      : { ok: false, reason: out.reason };
   } finally {
     await worker.terminate();
   }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readScoreboardFromBuffer, type OcrResult } from "../server";
+import { readScoreboardFromBuffer, type OcrResult, type RoundScore } from "../server";
 import type {
   CellField,
   MatchResponse,
@@ -56,7 +56,11 @@ export async function ocrImage(
   });
   if (!read.ok) return unreadable(read.reason);
 
-  const { response, globalConfidence } = buildImageResponse(read.result, { game, screen });
+  const { response, globalConfidence } = buildImageResponse(read.result, {
+    game,
+    screen,
+    roundScore: read.roundScore,
+  });
   return { ok: true, response, globalConfidence };
 }
 
@@ -71,13 +75,21 @@ function screenToMode(screen?: Screen): Mode {
  *    422 -> un match aux stats parfaites n'est jamais rejete (cf. exemple §5.2 :
  *    joueur 0.94 alors que son champ pseudo est a 0.72). La confiance du pseudo
  *    vit dans fields.pseudo.confidence (surlignage orange + warning).
- *  - placement laisse NON RESOLU : l'organisateur confirme le vainqueur cote The
- *    Circle (l'humain valide avant enregistrement, §9).
+ *  - placement DEDUIT du score de manches quand il a pu etre lu : en Recherche &
+ *    Destruction c'est la seule verite sur le vainqueur, et la capture l'affiche
+ *    noir sur blanc — inutile de le redemander a l'organisateur. S'il est
+ *    illisible, placement reste absent et un warning invite a le saisir : mieux
+ *    vaut ne rien affirmer que deviner a partir des kills, qui ne decident rien
+ *    dans ce mode. L'humain valide de toute facon avant enregistrement (§9).
  *  - source de chaque cellule = "tesseract" (repli vision = Lot B, eteint).
  */
 function buildImageResponse(
   ocr: OcrResult,
-  { game, screen }: { game: string; screen?: Screen }
+  {
+    game,
+    screen,
+    roundScore,
+  }: { game: string; screen?: Screen; roundScore?: RoundScore | null }
 ): { response: MatchResponse; globalConfidence: number } {
   const warnThreshold = num("CONFIDENCE_WARN_THRESHOLD", 0.9);
   const warnings: Warning[] = [];
@@ -90,7 +102,33 @@ function buildImageResponse(
     source: "tesseract",
   });
 
+  // Score de manches -> vainqueur. Le tableau de GAUCHE est l'equipe bleue, celui
+  // de droite la rouge (cf. core/roundscore) : on rattache donc chaque total par
+  // le `side` du tableau, jamais par son rang dans la liste.
+  if (!roundScore) {
+    warnings.push({
+      code: "round_score_unreadable",
+      detail: "score de manches illisible : vainqueur a confirmer",
+    });
+  } else if (roundScore.blue === roundScore.red) {
+    // Egalite : le mode n'en produit pas normalement. Plutot que de trancher au
+    // hasard, on rend les totaux et on laisse l'organisateur decider.
+    warnings.push({
+      code: "round_score_tie",
+      detail: `manches a egalite (${roundScore.blue}:${roundScore.red}) : vainqueur a confirmer`,
+    });
+  }
+
+  const winner: "blue" | "red" | null =
+    roundScore && roundScore.blue !== roundScore.red
+      ? roundScore.blue > roundScore.red
+        ? "blue"
+        : "red"
+      : null;
+
   const teams: TeamOut[] = ocr.teams.map((team) => ({
+    ...(roundScore ? { rounds_won: roundScore[team.side] } : {}),
+    ...(winner ? { placement: team.side === winner ? 1 : 2 } : {}),
     players: team.players.map((p): PlayerOut => {
       tesseractCells += 3; // pseudo + score + ema = 3 lectures/joueur
       const statConf = p.confidence; // = confiance de la cellule K/D/A

@@ -39,9 +39,29 @@ curl -s https://<url>.vercel.app/api/health
 
 ## Appeler l'endpoint
 
-Pour l'instant on attend le JSON **déjà extrait** (`source: "web"`). Le chemin
-image (capture postée sur Discord) arrivera plus tard — d'ici là il répond
-`501 ocr_not_available`.
+Deux chemins possibles.
+
+**Chemin image** (`source: "the_circle"`) — vous nous envoyez la capture, on fait
+l'OCR et on vous rend le JSON. Rien à lire de votre côté.
+
+```bash
+curl -s https://<url>.vercel.app/v1/matches \
+  -H "Authorization: Bearer sk_VOTRE_CLE" \
+  -H "Content-Type: application/json" \
+  -d "{\"source\":\"the_circle\",\"game\":\"codm\",\"screen\":\"codm_mp\",\"image_base64\":\"$(base64 -w0 capture.jpg)\"}"
+```
+
+- `image_base64` : png/jpg **sans** l'en-tête `data:`. 8 Mo max.
+- `screen` optionnel (`codm_mp`). Les écrans battle royale ne sont pas encore
+  lisibles et répondent `422`.
+- Limité aux scoreboards d'équipe CODM (deux tableaux, barres bleue et rouge).
+- ⚠️ **Coût CPU** : ~2 à 8 s par capture. Sur un hébergement sans vrai CPU dédié
+  ça peut dépasser le budget de la fonction — si vous visez du volume, l'OCR peut
+  aussi tourner **dans le navigateur de l'organisateur** en important notre moteur
+  (`ocr-resultat/browser`), et vous nous postez alors le JSON extrait.
+
+**Chemin JSON** (`source: "web"`) — vous avez déjà les chiffres, on valide et on
+normalise.
 
 ```bash
 curl -s https://<url>.vercel.app/v1/matches \
@@ -82,8 +102,9 @@ Détails pratiques :
     Sur le chemin image, `is_mvp` = le meilleur score de chaque équipe (1re ligne
     du tableau, trié par score), fiable quelle que soit la résolution.
 - **`rounds_won` (entier, optionnel, par équipe)** : score de manches (ex. `5`
-  pour un 5:4). Passthrough dans `teams[].rounds_won`. Sur le chemin image (Lot 2),
-  ce sera la source de vérité du placement (gagnant = plus de `rounds_won`).
+  pour un 5:4). Passthrough dans `teams[].rounds_won`. Sur le **chemin image**,
+  vous n'avez rien à envoyer : on le **lit sur la capture** et on en déduit le
+  `placement` (voir ci-dessous).
 - **`pseudo_confidence` (flottant 0–1, optionnel, par joueur)** : confiance
   **spécifique à la lecture du pseudo** (souvent basse pour les pseudos stylisés).
   Découplée de `confidence` : elle **ne rejette jamais** le match (pas de `422`),
@@ -117,9 +138,21 @@ Détails pratiques :
 
 - `match_id` et `captured_at` : générés par nous.
 - `confidence` global = moyenne des confidences joueurs.
-- `warnings` = les cases douteuses (`low_confidence_pseudo`,
-  `duplicate_placement`). À afficher en surbrillance pour validation humaine avant
-  d'enregistrer quoi que ce soit.
+- **Vainqueur (chemin image)** : on lit le **score de manches** affiché en haut de
+  la capture (`5:4`) et on le rend dans `teams[].rounds_won`, avec le
+  `teams[].placement` qui en découle (`1` = gagnante). En Recherche & Destruction
+  c'est la seule vérité sur le vainqueur — ni les kills ni le score individuel ne
+  le déterminent. Le tableau de **gauche** est la 1re `team` du tableau, celui de
+  **droite** la 2e.
+  - Si le score de manches est illisible, `rounds_won` et `placement` sont
+    **absents** et un warning `round_score_unreadable` est levé : à faire saisir
+    par l'organisateur. On préfère ne rien affirmer plutôt que de deviner à partir
+    des kills, qui ne décident rien dans ce mode.
+  - Égalité (anormale dans ce mode) : `rounds_won` est rendu, `placement` non,
+    warning `round_score_tie`.
+- `warnings` = les cases douteuses (`low_confidence_pseudo`, `empty_pseudo`,
+  `non_numeric_stat`, `round_score_unreadable`, `round_score_tie`). À afficher en
+  surbrillance pour validation humaine avant d'enregistrer quoi que ce soit.
 - On ne renvoie **jamais** de `profile_id`/email, et on ne « corrige » jamais un
   pseudo — c'est votre job.
 
@@ -131,9 +164,8 @@ Toujours la même forme : `{ "error": { "code": "…", "message": "…" } }`
 |---|---|---|
 | 400 | `invalid_body` | JSON malformé / champ manquant / règle de mode violée |
 | 401 | `invalid_api_key` | clé absente ou invalide |
-| 422 | `unreadable_scoreboard` | confiance globale trop basse |
+| 422 | `unreadable_scoreboard` | confiance trop basse, tableaux non détectés, ou écran non supporté (battle royale) |
 | 429 | `rate_limited` | quota dépassé (~60/min), voir header `Retry-After` |
-| 501 | `ocr_not_available` | chemin image (pas encore dispo) |
 
 ## Ce que vous branchez derrière
 
