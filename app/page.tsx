@@ -11,7 +11,11 @@ export default function Home() {
         Endpoint : <code>POST /v1/matches</code> — voir le <code>README.md</code>.
       </p>
       <p>
-        <a href="/upload">→ Page d&apos;upload (OCR navigateur, CODM)</a>
+        <a href="/scan">→ Enregistrer un match depuis une capture</a>
+      </p>
+      <p style={{ fontSize: "0.9rem", color: "#5f6570" }}>
+        <a href="/upload">Banc moteur</a> — lecture brute d&apos;une capture, sans
+        enregistrement. Sert a verifier ce que lit l&apos;OCR.
       </p>
     </main>
   );

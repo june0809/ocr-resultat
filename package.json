@@ -4,8 +4,11 @@
   "private": true,
   "description": "Ingestion de resultats de match par capture d'ecran : service de validation + moteur OCR reutilisable (navigateur et Node).",
   "scripts": {
+    "predev": "node scripts/sync-tesseract-assets.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/sync-tesseract-assets.mjs",
     "build": "next build",
+    "assets": "node scripts/sync-tesseract-assets.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

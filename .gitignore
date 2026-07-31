@@ -28,6 +28,12 @@ next-env.d.ts
 # modeles tesseract telecharges au runtime
 *.traineddata
 
+# assets tesseract servis par la page de saisie : ~34 Mo copies depuis
+# node_modules avant chaque dev/build (scripts/sync-tesseract-assets.mjs).
+# Generes, jamais edites a la main — les committer alourdirait le depot a chaque
+# montee de version de tesseract.js.
+/public/tesseract
+
 # logs & os
 npm-debug.log*
 yarn-debug.log*
