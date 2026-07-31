@@ -13,6 +13,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "keygen": "node scripts/keygen.mjs",
+    "keygen:scan": "node scripts/keygen-scan.mjs",
     "e2e": "tsx scripts/ocr-e2e.ts",
     "build:engine": "tsc -p tsconfig.build.json",
     "check:dist": "node scripts/check-dist.mjs",
