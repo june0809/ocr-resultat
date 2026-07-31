@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import path from "node:path";
 
 /**
@@ -16,11 +16,16 @@ import path from "node:path";
  */
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const run = (cmd, args) =>
-  execFileSync(cmd, args, { cwd: ROOT, encoding: "utf8", shell: true });
 
-console.log("→ npm run build:engine");
-run("npm", ["run", "build:engine"]);
+/** git est un vrai executable : appel direct, arguments non interpretes. */
+const git = (args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" });
+
+/** npm est un .cmd sous Windows, que Node 24 refuse de lancer sans shell
+ *  (spawnSync EINVAL, mitigation CVE-2024-27980) : on passe donc par un shell. */
+const npm = (command) => execSync(`npm ${command}`, { cwd: ROOT, encoding: "utf8" });
+
+console.log("-> npm run build:engine");
+npm("run build:engine");
 
 // Deux questions distinctes, d'ou deux commandes :
 //   - un fichier COMMITE a-t-il change (ou disparu) ? -> diff contre HEAD, en
@@ -28,8 +33,8 @@ run("npm", ["run", "build:engine"]);
 //     reellement livre, pas a ce qui se trouve stage.
 //   - un fichier NEUF est-il apparu (nouveau module du moteur) ? -> il ne serait
 //     dans aucun diff, seulement dans les fichiers non suivis.
-const changed = run("git", ["diff", "--name-status", "HEAD", "--", "dist"]).trim();
-const untracked = run("git", ["ls-files", "--others", "--exclude-standard", "--", "dist"]).trim();
+const changed = git(["diff", "--name-status", "HEAD", "--", "dist"]).trim();
+const untracked = git(["ls-files", "--others", "--exclude-standard", "--", "dist"]).trim();
 
 if (changed || untracked) {
   console.error("\n==== dist/ N'EST PAS A JOUR ====");
