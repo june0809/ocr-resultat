@@ -35,5 +35,14 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# build du moteur (regenere par "prepare" a l installation)
-/dist
+# build du moteur : VOLONTAIREMENT COMMITE, ne pas ignorer.
+#
+# Le paquet n'expose que dist/ (champ "files"). Tant que dist/ n'existait qu'en
+# sortie du script "prepare", une installation sans scripts d'install
+# (npm --ignore-scripts, config d'entreprise, CI durcie) posait un paquet VIDE :
+# npm sortait en succes, et le consommateur cassait plus tard sur un
+# MODULE_NOT_FOUND qui ne designait pas la cause. Committer dist/ supprime cette
+# dependance a un script qu'on ne controle pas, et evite au consommateur de
+# telecharger TypeScript pour recompiler (~2 min d'install economisees).
+#
+# La synchronisation dist/ <-> lib/ocr/ est verifiee en CI (npm run check:dist).

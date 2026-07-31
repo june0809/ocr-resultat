@@ -1,0 +1,15 @@
+# Fins de ligne normalisees en LF dans le depot. Sans ca, un poste Windows et la
+# CI Linux ne voient pas le meme contenu pour dist/, et `npm run check:dist`
+# signalerait une derive inexistante a chaque commit fait depuis Windows.
+* text=auto eol=lf
+
+# Binaires : jamais de conversion.
+*.png binary
+*.jpg binary
+*.webp binary
+*.traineddata binary
+
+# dist/ est un BUILD commite (cf. .gitignore). On le marque comme genere pour que
+# GitHub replie son diff dans les PR : la revue doit porter sur lib/ocr/, pas sur
+# 1 500 lignes de JS transpile qu'aucun humain ne relit utilement.
+dist/** linguist-generated=true

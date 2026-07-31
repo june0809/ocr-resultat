@@ -1,0 +1,60 @@
+# CI du repo ocr-resultat.
+#
+# Ce repo est consomme comme DEPENDANCE par The Circle : une regression de la
+# surface publiee (champ "exports", contenu de "files", dist/ perime) casse une
+# application tierce sans qu'aucun test local ne bronche. D'ou le job "paquet",
+# separe du job "appli" : il valide ce qu'on LIVRE, pas ce qu'on developpe.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Ce qu'on livre a The Circle. A garder vert en priorite absolue.
+  paquet:
+    name: Paquet consommable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # dist/ est commite : il doit correspondre a lib/ocr/, sinon on publie du
+      # code perime.
+      - name: dist/ en phase avec lib/ocr/
+        run: npm run check:dist
+
+      # pack + install --ignore-scripts + import des 4 exports. Attrape le cas ou
+      # le paquet s'installe VIDE en sortant en succes.
+      - name: Installation et import depuis un projet tiers
+        run: npm run check:package
+
+  # Le code de ce repo (service de validation + banc OCR).
+  appli:
+    name: Appli et moteur
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Build Next
+        run: npm run build
+
+      # Banc OCR sur les vraies captures : sort en echec si un tableau n'est plus
+      # detecte ou si le compte de joueurs ne tombe pas juste. C'est le seul
+      # garde-fou contre une regression de precision.
+      - name: Banc OCR (verite terrain)
+        run: npm run e2e
