@@ -80,19 +80,28 @@ export async function autoDetectTables(
     return (r + g + b) / 3 > 95;
   };
   const bandH = Math.max(2, Math.round(imgH * 0.01));
-  let bottom = hBot;
-  let gap = 0;
-  for (let y = hBot + bandH; y < imgH * 0.9; y += bandH) {
-    let cnt = 0;
-    for (let x = bxMin; x < bxMax; x++) if (bright(x, y)) cnt++;
-    if (cnt / Math.max(1, bxMax - bxMin) > 0.03) {
-      bottom = y;
-      gap = 0;
-    } else {
-      gap += bandH;
-      if (gap > imgH * 0.05) break; // trou franc = fin du tableau
+  // Le bas se mesure DANS LES COLONNES DU TABLEAU CONCERNE. Les deux equipes
+  // n'ont pas forcement le meme nombre de joueurs : quand quelqu'un quitte la
+  // partie avant la fin, son camp affiche une ligne de moins. Un bas commun
+  // calcule sur le seul tableau bleu amputait alors la derniere ligne rouge —
+  // en silence, et sans rien qui alerte a la validation (mesure : 3v4 sur la
+  // capture du 05/09, AZ-Montaha perdu).
+  const bottomOf = (xMin: number, xMax: number): number => {
+    let bottom = hBot;
+    let gap = 0;
+    for (let y = hBot + bandH; y < imgH * 0.9; y += bandH) {
+      let cnt = 0;
+      for (let x = xMin; x < xMax; x++) if (bright(x, y)) cnt++;
+      if (cnt / Math.max(1, xMax - xMin) > 0.03) {
+        bottom = y;
+        gap = 0;
+      } else {
+        gap += bandH;
+        if (gap > imgH * 0.05) break; // trou franc = fin du tableau
+      }
     }
-  }
+    return bottom;
+  };
 
   const top = hBot;
   const mk = (xMin: number, xMax: number): TableBoxes => ({
@@ -100,7 +109,7 @@ export async function autoDetectTables(
       x: xMin / imgW,
       y: top / imgH,
       width: (xMax - xMin) / imgW,
-      height: (bottom - top) / imgH,
+      height: (bottomOf(xMin, xMax) - top) / imgH,
     },
     header: {
       x: xMin / imgW,

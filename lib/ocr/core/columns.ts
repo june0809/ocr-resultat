@@ -44,10 +44,16 @@ interface Word {
   confidence: number;
 }
 
-/** Lignes echantillonnees pour le reperage du pseudo (compromis cout/robustesse). */
-const SAMPLE_ROWS = 2;
 /** Marge ajoutee autour des bornes detectees, en fraction de la boite. */
 const PAD = 0.012;
+/** Largeur PLANCHER de la fenetre du pseudo, en fraction de la boite.
+ *
+ *  Sans ce plancher, la fenetre s'effondre des que les lignes reperees sont mal
+ *  lues : mesure sur les captures du 05/09, 22.3-23.8 % soit 1.5 % de large au
+ *  lieu de ~14 %, ce qui rendait TOUT le tableau illisible ("A", "be", "fs").
+ *  Le cas se produit sur les pseudos a surnom, que CODM ecrit dans une police
+ *  reduite — donc justement les lignes que le reperage lit le moins bien. */
+const MIN_PSEUDO_W = 0.14;
 /** La passe "chiffres" ne regarde que la droite du tableau : au-dela, plus
  *  d'avatar ni de pseudo, donc aucune source de confusion. */
 const NUMERIC_ZONE_START = 0.3;
@@ -181,9 +187,11 @@ export async function detectColumns(
   bands: RowBand[]
 ): Promise<DetectedColumns | null> {
   const box = boxes.body;
-  const idx: number[] = [];
-  const stepI = Math.max(1, Math.floor(bands.length / SAMPLE_ROWS));
-  for (let i = 0; i < bands.length && idx.length < SAMPLE_ROWS; i += stepI) idx.push(i);
+  // TOUTES les lignes, pas un echantillon : le pseudo le plus long peut etre sur
+  // n'importe laquelle, et c'est lui qui fixe le bord droit de la colonne. Deux
+  // lignes suffisaient pour le K/D/A (aligne d'une ligne a l'autre), jamais pour
+  // la LARGEUR du pseudo. Cout : une lecture de reperage par ligne, ~0.1 s.
+  const idx: number[] = bands.map((_, i) => i);
 
   // ── Ancrage 1 : les libelles de l'en-tete ────────────────────────────────
   const head = await headerAnchors(worker, src, boxes.header);
@@ -276,8 +284,12 @@ export async function detectColumns(
     pse1.push(x1);
   }
 
-  const pseudoX0 = pse0.length ? median(pse0) : Math.max(0, scoreCenter - PSEUDO_FALLBACK_FROM);
-  const pseudoX1 = pse1.length ? Math.max(...pse1) : scoreCenter - PSEUDO_FALLBACK_TO;
+  // Bornes = UNION sur les lignes (le plus a gauche, le plus a droite) : la
+  // colonne doit contenir le pseudo le plus long, pas le median. Puis plancher
+  // de largeur, borne a gauche de la colonne SCORE pour ne jamais mordre dessus.
+  const pseudoX0 = pse0.length ? Math.min(...pse0) : Math.max(0, scoreCenter - PSEUDO_FALLBACK_FROM);
+  const pseudoRight = pse1.length ? Math.max(...pse1) : scoreCenter - PSEUDO_FALLBACK_TO;
+  const pseudoX1 = Math.min(sc0 - 0.02, Math.max(pseudoRight, pseudoX0 + MIN_PSEUDO_W));
 
   const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
   const mk = (
