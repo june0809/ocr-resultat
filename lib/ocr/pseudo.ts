@@ -32,6 +32,8 @@ const TRAILING_JUNK = /\s+[^\s]{1,2}$/;
 // Seuls les glyphes verticaux comptent, et seulement detaches du pseudo — sinon
 // on rognerait la premiere lettre d'un vrai pseudo commencant par I ou l.
 const LEADING_JUNK = /^[|Il!\[\]]{1,2}\s+/;
+// Taille plausible d'un surnom d'ami, fermante comprise ("Hawa)", "Ghost)").
+const MAX_NICKNAME = 9;
 
 /**
  * Nettoie un pseudo lu : retire le surnom entre parentheses et le rebut de fin,
@@ -63,6 +65,16 @@ export function cleanPseudo(raw: string): string {
     if (cut >= 2) {
       const candidate = base.slice(0, cut).trim();
       if (candidate.length >= 2) out = candidate;
+    } else {
+      // Fermante presente, AUCUNE ouvrante : le "(" est un trait fin, souvent
+      // perdu ou rendu comme un simple blanc ("AZ-hawwaw Hawa)"). On coupe alors
+      // au dernier blanc — mais seulement si ce qui reste tient debout et si la
+      // queue a bien la taille d'un surnom. Sans ces deux garde-fous, "AZ
+      // MakiGhost)" serait ramene a "AZ".
+      const sp = base.lastIndexOf(" ");
+      const head = sp > 0 ? base.slice(0, sp).trim() : "";
+      const tail = sp > 0 ? base.slice(sp + 1) : "";
+      if (head.length >= 4 && tail.length <= MAX_NICKNAME) out = head;
     }
   } else {
     // Surnom ouvert et tronque : "AZ-Alk_pc(Pau".
