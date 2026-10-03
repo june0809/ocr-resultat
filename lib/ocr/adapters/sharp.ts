@@ -53,7 +53,10 @@ export async function createSharpSource(image: Buffer): Promise<ImageSource> {
         .resize({ width: Math.max(1, Math.round(r.width * scale)) })
         .grayscale();
       if (opts.contrast) p = p.linear(CONTRAST_GAIN, CONTRAST_BIAS);
-      return p.normalize().png().toBuffer() as unknown as OcrImage;
+      p = p.normalize();
+      // Negatif APRES l'etirement, comme l'adaptateur canvas.
+      if (opts.invert) p = p.negate({ alpha: false });
+      return p.png().toBuffer() as unknown as OcrImage;
     },
   };
 }

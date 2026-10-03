@@ -90,7 +90,8 @@ export function createCanvasSource(
       const range = max - min || 1;
       for (let i = 0; i < d.length; i += 4) {
         const v = ((d[i] - min) / range) * 255;
-        d[i] = d[i + 1] = d[i + 2] = v;
+        // Negatif APRES l'etirement — equivalent de sharp.normalize().negate().
+        d[i] = d[i + 1] = d[i + 2] = opts.invert ? 255 - v : v;
       }
       ctx.putImageData(img, 0, 0);
       return ctx.canvas as unknown as OcrImage;

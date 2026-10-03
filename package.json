@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "keygen": "node scripts/keygen.mjs",
     "e2e": "tsx scripts/ocr-e2e.ts",
+    "test:coherence": "tsx scripts/coherence-test.ts",
     "build:engine": "tsc -p tsconfig.build.json",
     "prepare": "tsc -p tsconfig.build.json"
   },

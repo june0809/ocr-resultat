@@ -49,10 +49,11 @@ export async function readScoreboard(
     ),
   };
 
-  const result = await runOcr(worker, src, template, { onDebug: opts.onDebug });
-
   // Score de manches ("2:5") = vainqueur déterministe, lu dans la bande au-dessus
   // des barres d'en-tête. Best-effort : s'il est illisible, l'UI redemandera.
+  // Lu AVANT les cellules : en Recherche & Destruction, il borne aussi les morts
+  // de chaque joueur (une mort par manche au plus), ce qui sert au contrôle de
+  // cohérence des É/M/A.
   let roundScore: RoundScore | null = null;
   try {
     roundScore = await readRoundScore(worker, src, boxes.blue.header.y);
@@ -60,6 +61,11 @@ export async function readScoreboard(
     roundScore = null;
   }
   opts.onDebug?.(`[round] ${roundScore ? `${roundScore.blue}:${roundScore.red}` : "non lu"}`);
+  const rounds = roundScore ? roundScore.blue + roundScore.red : 0;
+  const maxDeaths =
+    roundScore && Math.max(roundScore.blue, roundScore.red) >= 3 && rounds <= 25 ? rounds : undefined;
+
+  const result = await runOcr(worker, src, template, { onDebug: opts.onDebug, maxDeaths });
 
   return { ok: true, result, template, roundScore };
 }

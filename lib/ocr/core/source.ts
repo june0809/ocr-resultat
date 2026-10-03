@@ -79,6 +79,15 @@ export interface CropOptions {
    * usage en cascade plutot qu'en systematique.
    */
   contrast?: boolean;
+  /**
+   * Texte NOIR sur fond BLANC (negatif applique apres la normalisation).
+   *
+   * Le modele de Tesseract est entraine sur de l'encre sombre sur papier clair ;
+   * le scoreboard CODM ecrit en blanc sur fond sombre. Mesure le 03/10 sur 192
+   * cellules reelles (25 captures de tournoi) : E/M/A justes 186 -> 188, pseudos
+   * lisibles 166 -> 169. Sans effet de bord sur le reste de la chaine.
+   */
+  invert?: boolean;
 }
 
 /** Coefficients du renforcement de contraste, partages par les deux adaptateurs

@@ -77,6 +77,30 @@ curl -s http://localhost:3000/v1/matches \
 - Le service **ne renvoie jamais** de `profile_id`/email/identité, et **ne
   corrige jamais** un pseudo (§12).
 
+## Le moteur de lecture (`lib/ocr/`)
+
+Partagé navigateur / Node (`ocr-resultat/browser`, `ocr-resultat/server`) :
+détection des deux tableaux, ancrage des lignes, colonnes repérées sur
+l'en-tête, puis lecture cellule par cellule. Trois garde-fous depuis le 03/10 :
+
+- **Négatif** : pseudos et É/M/A sont lus en encre noire sur fond blanc (le
+  modèle de Tesseract est entraîné ainsi, la capture est blanc sur sombre).
+- **Deuxième lecture des pseudos** : `pseudo_alternatives` porte une autre
+  lecture du même pseudo ; le rapprochement côté client compare les deux.
+- **Contrôle de cohérence** (`core/coherence.ts`) : les kills d'une équipe
+  font les morts de l'autre, et en Recherche & Destruction on meurt au plus une
+  fois par manche. Quand ça ne tient pas, les É/M/A sont relus sous d'autres
+  prétraitements et la correction la moins coûteuse (erreurs connues : le 7 lu
+  1) est retenue, à condition d'être compatible avec le score de la ligne.
+  Chaque joueur porte `ema_check` (`ok` / `corrige` / `deduit` / `douteux`) et
+  `ema_original` ; le résultat porte `coherence` (`checked`, `balanced`, `gaps`,
+  `corrected`). Une lecture concordante n'est jamais modifiée.
+
+```bash
+npm run e2e              # banc sur les captures d'exemple (chemin Node)
+npm run test:coherence   # règles de cohérence, sans image
+```
+
 ## Communication avec The Circle (schéma « pull »)
 
 Le service est **passif** : c'est The Circle qui l'appelle.
